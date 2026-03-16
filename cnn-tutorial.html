@@ -519,9 +519,12 @@
                 <p class="tooltip-box" style="margin-top:14px;">
                     ReLU 将所有负值归零，引入<strong>非线性</strong>，让网络能学习复杂模式。
                 </p>
+                <p class="status-text" id="reluStatus">准备演示 ReLU...</p>
                 <div class="controls">
                     <button class="btn btn-secondary" onclick="goStep(2)">← 上一步</button>
-                    <button class="btn btn-primary" onclick="animateReLU()">动画演示 ▶</button>
+                    <button class="btn btn-secondary" id="btnReluStep" onclick="stepReLU()">单步执行 ▶</button>
+                    <button class="btn btn-primary" onclick="animateReLU()">自动演示 ⚡</button>
+                    <button class="btn btn-secondary" onclick="resetReLU()">重置 🔄</button>
                     <button class="btn btn-primary" onclick="goStep(4)">下一步 →</button>
                 </div>
             </div>
@@ -603,6 +606,7 @@ let autoConvTimer = null;
 
 // ReLU / Pool state
 let reluData = [];
+let reluPos = 0; // 0..15
 let poolPos = 0;
 let poolOutputData = Array(2).fill(null).map(() => Array(2).fill(null));
 let autoPoolTimer = null;
@@ -845,6 +849,7 @@ function syncReluData() {
 
 function buildReluGrids() {
     syncReluData();
+    reluPos = 0;
     const before = document.getElementById('reluBeforeGrid');
     const after = document.getElementById('reluAfterGrid');
     if (!before || !after) return;
@@ -916,20 +921,67 @@ function drawReLUGraph() {
     ctx.fillText('x≥0: x', W/2+5, H/2-6);
 }
 
-async function animateReLU() {
-    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
-        const v = reluData[r][c];
-        const activated = Math.max(0, v);
-        const el = document.getElementById(`relu_after_${r}_${c}`);
-        if (!el) continue;
-        await new Promise(res => setTimeout(res, 80));
-        el.style.background = featureColor(activated);
-        el.style.color = activated > 0 ? '#166534' : '#888';
-        el.textContent = activated;
-        // update reluData for pool step
-        reluData[r][c] = activated;
+function applyReluCell(pos) {
+    const r = Math.floor(pos / 4), c = pos % 4;
+    const rawEl = document.getElementById(`relu_after_${r}_${c}`);
+    if (!rawEl) return;
+    // reluData at this point still holds the pre-relu value
+    const rawVal = reluData[r][c];
+    const activated = Math.max(0, rawVal);
+    rawEl.style.background = featureColor(activated);
+    rawEl.style.color = activated > 0 ? '#166534' : '#888';
+    rawEl.textContent = activated;
+    reluData[r][c] = activated;
+    const status = document.getElementById('reluStatus');
+    if (status) {
+        if (rawVal < 0) {
+            status.textContent = `格 (${r},${c})：${rawVal} < 0 → 归零 ✂️`;
+        } else {
+            status.textContent = `格 (${r},${c})：${rawVal} ≥ 0 → 保留 ✅`;
+        }
     }
-    // sync to pool
+}
+
+function stepReLU() {
+    if (reluPos >= 16) {
+        const status = document.getElementById('reluStatus');
+        if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
+        document.getElementById('btnReluStep').disabled = true;
+        buildPoolGrids();
+        return;
+    }
+    applyReluCell(reluPos);
+    reluPos++;
+    if (reluPos >= 16) {
+        const status = document.getElementById('reluStatus');
+        if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
+        document.getElementById('btnReluStep').disabled = true;
+        buildPoolGrids();
+    }
+}
+
+function resetReLU() {
+    reluPos = 0;
+    syncReluData();
+    buildReluGrids();
+    const status = document.getElementById('reluStatus');
+    if (status) status.textContent = '准备演示 ReLU...';
+    const btn = document.getElementById('btnReluStep');
+    if (btn) btn.disabled = false;
+}
+
+async function animateReLU() {
+    resetReLU();
+    for (let i = 0; i < 16; i++) {
+        await new Promise(res => setTimeout(res, 80));
+        applyReluCell(i);
+        reluPos = i + 1;
+    }
+    reluPos = 16;
+    const status = document.getElementById('reluStatus');
+    if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
+    const btn = document.getElementById('btnReluStep');
+    if (btn) btn.disabled = true;
     buildPoolGrids();
 }
 
