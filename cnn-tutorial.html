@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🖼️ 卷积神经网络 CNN 可视化</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+            font-size: 2.2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 1.05em;
+        }
+
+        /* Steps nav */
+        .steps-nav {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .step-btn {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.25s;
+            color: #555;
+        }
+
+        .step-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .step-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: transparent;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Main content area */
+        .main-area {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 24px;
+        }
+
+        .viz-panel {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 24px;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        .card h3 {
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card p, .card li {
+            color: #555;
+            font-size: 0.88em;
+            line-height: 1.7;
+        }
+
+        .card ul {
+            padding-left: 18px;
+        }
+
+        .formula {
+            background: #1a1a2e;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-family: "Courier New", monospace;
+            font-size: 0.85em;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .highlight { color: #f6d860; font-weight: 600; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 9px 22px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88em;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover { background: #667eea; color: white; }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+        /* Pixel grid */
+        .pixel-grid {
+            display: inline-grid;
+            gap: 2px;
+            background: #ddd;
+            padding: 2px;
+            border-radius: 6px;
+        }
+
+        .pixel-cell {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82em;
+            font-weight: 600;
+            border-radius: 3px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .pixel-cell.highlight-region {
+            outline: 3px solid #e74c3c;
+            outline-offset: -1px;
+            z-index: 2;
+        }
+
+        .pixel-cell.result-cell {
+            outline: 3px solid #27ae60;
+            outline-offset: -1px;
+        }
+
+        /* Kernel grid */
+        .kernel-grid {
+            display: inline-grid;
+            gap: 2px;
+            background: #667eea;
+            padding: 3px;
+            border-radius: 6px;
+        }
+
+        .kernel-cell {
+            width: 48px;
+            height: 48px;
+            background: #dfe6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            font-weight: 700;
+            color: #1a1a2e;
+            border-radius: 3px;
+        }
+
+        /* Feature map grid */
+        .feature-cell {
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82em;
+            font-weight: 600;
+            border-radius: 3px;
+            transition: all 0.4s;
+        }
+
+        /* Arrow */
+        .arrow {
+            font-size: 2em;
+            color: #667eea;
+            margin: 0 10px;
+            align-self: center;
+        }
+
+        /* Multi-grid layout */
+        .grids-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .grid-label {
+            text-align: center;
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        .grid-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Calc display */
+        .calc-display {
+            background: #1a1a2e;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-family: monospace;
+            font-size: 0.83em;
+            min-height: 56px;
+            margin-top: 14px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* Pool grid */
+        .pool-cell {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1em;
+            font-weight: 700;
+            border-radius: 4px;
+            transition: all 0.4s;
+        }
+
+        /* FC layer */
+        .fc-layer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .fc-neuron {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 3px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72em;
+            font-weight: 600;
+            transition: all 0.4s;
+            cursor: default;
+        }
+
+        .fc-line {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .output-layer .fc-neuron {
+            width: 54px;
+            height: 54px;
+            font-size: 0.75em;
+        }
+
+        /* Progress */
+        .progress-bar-wrap {
+            width: 100%;
+            background: #eee;
+            border-radius: 20px;
+            height: 6px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 20px;
+            transition: width 0.4s ease;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .main-area { grid-template-columns: 1fr; }
+            .info-panel { order: -1; }
+        }
+
+        /* Step visibility */
+        .step-content { display: none; }
+        .step-content.active { display: flex; flex-direction: column; align-items: center; width: 100%; }
+
+        /* Tag */
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .tag-blue { background: #dbeafe; color: #1d4ed8; }
+        .tag-green { background: #dcfce7; color: #166534; }
+        .tag-orange { background: #ffedd5; color: #9a3412; }
+        .tag-purple { background: #f3e8ff; color: #7e22ce; }
+
+        /* ReLU graph */
+        canvas { border-radius: 8px; }
+
+        /* Tooltip */
+        .tooltip-box {
+            background: #1a1a2e;
+            color: white;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.8em;
+            max-width: 260px;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .status-text {
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 12px;
+            min-height: 24px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🖼️ 卷积神经网络 CNN 可视化</h1>
+    <p class="subtitle">从像素矩阵到图像分类 — 逐步动画演示，基于 StatQuest 风格</p>
+
+    <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBar" style="width:16.7%"></div>
+    </div>
+
+    <!-- Step nav -->
+    <div class="steps-nav">
+        <button class="step-btn active" onclick="goStep(0)">① 输入图像</button>
+        <button class="step-btn" onclick="goStep(1)">② 卷积核</button>
+        <button class="step-btn" onclick="goStep(2)">③ 卷积运算</button>
+        <button class="step-btn" onclick="goStep(3)">④ ReLU 激活</button>
+        <button class="step-btn" onclick="goStep(4)">⑤ 最大池化</button>
+        <button class="step-btn" onclick="goStep(5)">⑥ 全连接 & 分类</button>
+    </div>
+
+    <div class="main-area">
+        <!-- Visualization panel -->
+        <div class="viz-panel" id="vizPanel">
+
+            <!-- Step 0: Input image -->
+            <div class="step-content active" id="step0">
+                <h3 style="margin-bottom:16px;color:#1a1a2e;">📷 输入图像 = 数字矩阵</h3>
+                <div class="grids-row">
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="inputGrid" style="grid-template-columns: repeat(6,44px)"></div>
+                        <div class="grid-label">6×6 灰度图像（像素值 0-255）</div>
+                    </div>
+                </div>
+                <p id="step0Tooltip" class="tooltip-box" style="margin-top:18px;">
+                    点击像素格，查看它代表的颜色深浅 🎨
+                </p>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="resetInputColors()">🔄 随机图案</button>
+                    <button class="btn btn-primary" onclick="goStep(1)">下一步 →</button>
+                </div>
+            </div>
+
+            <!-- Step 1: Kernel -->
+            <div class="step-content" id="step1">
+                <h3 style="margin-bottom:16px;color:#1a1a2e;">🔲 卷积核（Filter / Kernel）</h3>
+                <div class="grids-row" style="align-items:flex-start;gap:30px;">
+                    <div class="grid-wrapper">
+                        <div class="kernel-grid" id="kernelGrid" style="grid-template-columns: repeat(3,48px)"></div>
+                        <div class="grid-label">3×3 边缘检测核</div>
+                    </div>
+                    <div style="max-width:260px;">
+                        <p style="font-size:0.88em;color:#555;line-height:1.8;">
+                            卷积核是一组<strong>可学习的权重</strong>。<br>
+                            不同的核检测不同特征：<br>
+                            • <span style="color:#e74c3c;">边缘检测</span>：-1/0/+1 模式<br>
+                            • <span style="color:#2980b9;">模糊</span>：全为 1/9<br>
+                            • <span style="color:#27ae60;">锐化</span>：中心高权重<br><br>
+                            训练时，网络<strong>自动学习</strong>最有用的核。
+                        </p>
+                        <div class="formula">output = Σ (input × kernel)</div>
+                    </div>
+                </div>
+                <div id="kernelButtons" style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                    <button class="btn btn-secondary" onclick="setKernel('edge')">🔲 边缘检测</button>
+                    <button class="btn btn-secondary" onclick="setKernel('blur')">🌫️ 模糊</button>
+                    <button class="btn btn-secondary" onclick="setKernel('sharpen')">✨ 锐化</button>
+                    <button class="btn btn-secondary" onclick="setKernel('emboss')">🗿 浮雕</button>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="goStep(0)">← 上一步</button>
+                    <button class="btn btn-primary" onclick="goStep(2)">下一步 →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Convolution -->
+            <div class="step-content" id="step2">
+                <h3 style="margin-bottom:14px;color:#1a1a2e;">⚡ 卷积滑动运算</h3>
+                <div class="grids-row">
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="convInputGrid" style="grid-template-columns: repeat(6,44px)"></div>
+                        <div class="grid-label">输入图像（红框=当前窗口）</div>
+                    </div>
+                    <div style="font-size:1.6em;color:#667eea;font-weight:bold;">✕</div>
+                    <div class="grid-wrapper">
+                        <div class="kernel-grid" id="convKernelGrid" style="grid-template-columns: repeat(3,48px)"></div>
+                        <div class="grid-label">卷积核</div>
+                    </div>
+                    <div style="font-size:1.6em;color:#667eea;font-weight:bold;">=</div>
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="featureMapGrid" style="grid-template-columns: repeat(4,52px)"></div>
+                        <div class="grid-label">特征图 4×4</div>
+                    </div>
+                </div>
+                <div class="calc-display" id="calcDisplay">点击「单步」查看卷积计算过程...</div>
+                <p class="status-text" id="convStatus">位置 (0,0) — 准备开始</p>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="goStep(1)">← 上一步</button>
+                    <button class="btn btn-secondary" id="btnStep" onclick="stepConv()">单步执行 ▶</button>
+                    <button class="btn btn-primary" id="btnAuto" onclick="autoConv()">自动演示 ⚡</button>
+                    <button class="btn btn-secondary" onclick="resetConv()">重置 🔄</button>
+                </div>
+            </div>
+
+            <!-- Step 3: ReLU -->
+            <div class="step-content" id="step3">
+                <h3 style="margin-bottom:14px;color:#1a1a2e;">⚡ ReLU 激活函数</h3>
+                <div class="grids-row" style="align-items:flex-start;gap:24px;">
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="reluBeforeGrid" style="grid-template-columns: repeat(4,52px)"></div>
+                        <div class="grid-label">卷积输出（含负值）</div>
+                    </div>
+                    <div class="arrow">→</div>
+                    <div class="grid-wrapper">
+                        <canvas id="reluCanvas" width="160" height="160"></canvas>
+                        <div class="grid-label">ReLU: max(0, x)</div>
+                    </div>
+                    <div class="arrow">→</div>
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="reluAfterGrid" style="grid-template-columns: repeat(4,52px)"></div>
+                        <div class="grid-label">激活后（负值清零）</div>
+                    </div>
+                </div>
+                <p class="tooltip-box" style="margin-top:14px;">
+                    ReLU 将所有负值归零，引入<strong>非线性</strong>，让网络能学习复杂模式。
+                </p>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="goStep(2)">← 上一步</button>
+                    <button class="btn btn-primary" onclick="animateReLU()">动画演示 ▶</button>
+                    <button class="btn btn-primary" onclick="goStep(4)">下一步 →</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Pooling -->
+            <div class="step-content" id="step4">
+                <h3 style="margin-bottom:14px;color:#1a1a2e;">📉 最大池化（Max Pooling）</h3>
+                <div class="grids-row" style="align-items:flex-start;gap:20px;">
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="poolInputGrid" style="grid-template-columns: repeat(4,60px);gap:2px;"></div>
+                        <div class="grid-label">激活后特征图（红框=2×2窗口）</div>
+                    </div>
+                    <div class="arrow">→</div>
+                    <div class="grid-wrapper">
+                        <div class="pixel-grid" id="poolOutputGrid" style="grid-template-columns: repeat(2,60px);gap:2px;"></div>
+                        <div class="grid-label">池化输出 2×2（取最大值）</div>
+                    </div>
+                </div>
+                <p class="status-text" id="poolStatus">准备演示池化...</p>
+                <p class="tooltip-box" style="margin-top:10px;">
+                    池化：每个 2×2 区域取最大值，<strong>压缩尺寸、保留最强特征、增加平移不变性</strong>。
+                </p>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="goStep(3)">← 上一步</button>
+                    <button class="btn btn-secondary" onclick="stepPool()">单步 ▶</button>
+                    <button class="btn btn-primary" onclick="autoPool()">自动演示 ⚡</button>
+                    <button class="btn btn-secondary" onclick="resetPool()">重置 🔄</button>
+                </div>
+            </div>
+
+            <!-- Step 5: FC + Output -->
+            <div class="step-content" id="step5">
+                <h3 style="margin-bottom:14px;color:#1a1a2e;">🎯 全连接层 & 分类输出</h3>
+                <div class="grids-row" style="align-items:center;gap:10px;" id="fcViz"></div>
+                <p class="status-text" id="fcStatus">展平池化输出 → 全连接层 → Softmax 分类</p>
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="goStep(4)">← 上一步</button>
+                    <button class="btn btn-primary" onclick="animateFC()">动画演示 ▶</button>
+                    <button class="btn btn-secondary" onclick="restartAll()">🔄 从头开始</button>
+                </div>
+            </div>
+
+        </div><!-- end viz-panel -->
+
+        <!-- Info panel -->
+        <div class="info-panel" id="infoPanel">
+            <!-- Cards updated per step -->
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const INPUT_SIZE = 6;
+
+// Default image: simple edge pattern
+let imageData = [
+    [200, 200, 200,  20,  20,  20],
+    [200, 200, 200,  20,  20,  20],
+    [200, 200, 200,  20,  20,  20],
+    [200, 200, 200,  20,  20,  20],
+    [200, 200, 200,  20,  20,  20],
+    [200, 200, 200,  20,  20,  20],
+];
+
+const KERNELS = {
+    edge:    [[-1,-1,-1],[-1, 8,-1],[-1,-1,-1]],
+    blur:    [[1,1,1],[1,1,1],[1,1,1]],  // will normalize
+    sharpen: [[0,-1,0],[-1,5,-1],[0,-1,0]],
+    emboss:  [[-2,-1,0],[-1,1,1],[0,1,2]],
+};
+let currentKernel = 'edge';
+
+// Convolution state
+let convPos = 0; // 0..15 for 4x4 output
+let featureMap = Array(4).fill(null).map(() => Array(4).fill(null));
+let autoConvTimer = null;
+
+// ReLU / Pool state
+let reluData = [];
+let poolPos = 0;
+let poolOutputData = Array(2).fill(null).map(() => Array(2).fill(null));
+let autoPoolTimer = null;
+
+// ==================== UTILS ====================
+function pixelColor(v) {
+    const c = Math.round(Math.max(0, Math.min(255, v)));
+    return `rgb(${c},${c},${c})`;
+}
+
+function featureColor(v) {
+    if (v === null) return '#e9ecef';
+    const norm = Math.max(-128, Math.min(128, v));
+    if (norm >= 0) {
+        const g = Math.round(norm * 2);
+        return `rgb(${255-g}, 255, ${255-g})`;
+    } else {
+        const r = Math.round(-norm * 2);
+        return `rgb(255, ${255-r}, ${255-r})`;
+    }
+}
+
+function textColor(bg) {
+    // simple luminance check
+    return bg > 128 ? '#1a1a2e' : '#ffffff';
+}
+
+// ==================== STEP 0 ====================
+function buildInputGrid() {
+    const g = document.getElementById('inputGrid');
+    if (!g) return;
+    g.innerHTML = '';
+    for (let r = 0; r < INPUT_SIZE; r++) {
+        for (let c = 0; c < INPUT_SIZE; c++) {
+            const v = imageData[r][c];
+            const cell = document.createElement('div');
+            cell.className = 'pixel-cell';
+            cell.style.background = pixelColor(v);
+            cell.style.color = textColor(v);
+            cell.textContent = v;
+            cell.onclick = () => {
+                document.getElementById('step0Tooltip').textContent =
+                    `像素 (${r},${c}) = ${v}  →  ${v < 85 ? '暗（接近黑色）' : v < 170 ? '中灰' : '亮（接近白色）'}`;
+            };
+            g.appendChild(cell);
+        }
+    }
+}
+
+function resetInputColors() {
+    const patterns = [
+        // Vertical edge
+        () => {
+            for (let r=0;r<6;r++) for (let c=0;c<6;c++)
+                imageData[r][c] = c < 3 ? 200 : 20;
+        },
+        // Horizontal edge
+        () => {
+            for (let r=0;r<6;r++) for (let c=0;c<6;c++)
+                imageData[r][c] = r < 3 ? 200 : 20;
+        },
+        // Diagonal
+        () => {
+            for (let r=0;r<6;r++) for (let c=0;c<6;c++)
+                imageData[r][c] = r+c < 5 ? 200 : 20;
+        },
+        // Cross
+        () => {
+            for (let r=0;r<6;r++) for (let c=0;c<6;c++)
+                imageData[r][c] = (r===2||r===3||c===2||c===3) ? 200 : 20;
+        },
+        // Random
+        () => {
+            for (let r=0;r<6;r++) for (let c=0;c<6;c++)
+                imageData[r][c] = Math.round(Math.random()*255);
+        },
+    ];
+    const idx = Math.floor(Math.random() * patterns.length);
+    patterns[idx]();
+    buildInputGrid();
+    // sync conv grids
+    buildConvInputGrid();
+    buildReluGrids();
+}
+
+// ==================== STEP 1 ====================
+function buildKernelGrid(id) {
+    const g = document.getElementById(id);
+    if (!g) return;
+    g.innerHTML = '';
+    const k = KERNELS[currentKernel];
+    for (let r=0;r<3;r++) for (let c=0;c<3;c++) {
+        const cell = document.createElement('div');
+        cell.className = 'kernel-cell';
+        let v = k[r][c];
+        if (currentKernel === 'blur') v = '1/9';
+        cell.textContent = v;
+        g.appendChild(cell);
+    }
+}
+
+function setKernel(name) {
+    currentKernel = name;
+    buildKernelGrid('kernelGrid');
+    buildKernelGrid('convKernelGrid');
+    resetConv();
+}
+
+// ==================== STEP 2: CONV ====================
+function buildConvInputGrid() {
+    const g = document.getElementById('convInputGrid');
+    if (!g) return;
+    g.innerHTML = '';
+    for (let r=0;r<INPUT_SIZE;r++) for (let c=0;c<INPUT_SIZE;c++) {
+        const v = imageData[r][c];
+        const cell = document.createElement('div');
+        cell.className = 'pixel-cell';
+        cell.id = `ci_${r}_${c}`;
+        cell.style.background = pixelColor(v);
+        cell.style.color = textColor(v);
+        cell.textContent = v;
+        g.appendChild(cell);
+    }
+}
+
+function buildFeatureMapGrid() {
+    const g = document.getElementById('featureMapGrid');
+    if (!g) return;
+    g.innerHTML = '';
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const cell = document.createElement('div');
+        cell.className = 'feature-cell';
+        cell.id = `fm_${r}_${c}`;
+        cell.style.background = '#e9ecef';
+        cell.textContent = '';
+        g.appendChild(cell);
+    }
+}
+
+function computeConvAt(pr, pc) {
+    const k = KERNELS[currentKernel];
+    let sum = 0;
+    let terms = [];
+    for (let kr=0;kr<3;kr++) for (let kc=0;kc<3;kc++) {
+        const iv = imageData[pr+kr][pc+kc];
+        let kv = k[kr][kc];
+        if (currentKernel === 'blur') kv = 1;
+        sum += iv * kv;
+        terms.push(`${iv}×${kv}`);
+    }
+    if (currentKernel === 'blur') sum = Math.round(sum / 9);
+    return { sum: Math.round(sum), terms };
+}
+
+function highlightConvWindow(pr, pc) {
+    // clear all
+    for (let r=0;r<INPUT_SIZE;r++) for (let c=0;c<INPUT_SIZE;c++) {
+        const el = document.getElementById(`ci_${r}_${c}`);
+        if (el) el.classList.remove('highlight-region');
+    }
+    for (let kr=0;kr<3;kr++) for (let kc=0;kc<3;kc++) {
+        const el = document.getElementById(`ci_${pr+kr}_${pc+kc}`);
+        if (el) el.classList.add('highlight-region');
+    }
+}
+
+function updateFeatureCell(fr, fc, val) {
+    const cell = document.getElementById(`fm_${fr}_${fc}`);
+    if (!cell) return;
+    cell.style.background = featureColor(val);
+    cell.style.color = val > 0 ? '#166534' : val < 0 ? '#9a3412' : '#888';
+    cell.textContent = val;
+    cell.classList.add('result-cell');
+    featureMap[fr][fc] = val;
+}
+
+function stepConv() {
+    if (convPos >= 16) {
+        document.getElementById('convStatus').textContent = '✅ 卷积完成！特征图已生成';
+        return;
+    }
+    const pr = Math.floor(convPos / 4);
+    const pc = convPos % 4;
+    highlightConvWindow(pr, pc);
+    const { sum, terms } = computeConvAt(pr, pc);
+    updateFeatureCell(pr, pc, sum);
+
+    // Show calc
+    const display = document.getElementById('calcDisplay');
+    const lines = [];
+    for (let i=0;i<9;i+=3) lines.push(terms.slice(i,i+3).join(' + '));
+    display.innerHTML = `<span style="color:#a8d8ea">位置 (${pr},${pc})</span>: \n` +
+        lines.join('\n  + ') + `\n= <span style="color:#f6d860;font-size:1.1em">${sum}</span>`;
+
+    document.getElementById('convStatus').textContent = `位置 (${pr},${pc}) — 已完成 ${convPos+1}/16`;
+    convPos++;
+    if (convPos === 16) {
+        document.getElementById('btnStep').disabled = true;
+        document.getElementById('convStatus').textContent = '✅ 卷积完成！继续下一步查看 ReLU';
+        // Sync relu data
+        syncReluData();
+    }
+}
+
+function autoConv() {
+    if (autoConvTimer) { clearInterval(autoConvTimer); autoConvTimer = null; document.getElementById('btnAuto').textContent = '自动演示 ⚡'; return; }
+    document.getElementById('btnAuto').textContent = '暂停 ⏸';
+    document.getElementById('btnStep').disabled = true;
+    autoConvTimer = setInterval(() => {
+        if (convPos >= 16) {
+            clearInterval(autoConvTimer); autoConvTimer = null;
+            document.getElementById('btnAuto').textContent = '自动演示 ⚡';
+            return;
+        }
+        stepConv();
+    }, 350);
+}
+
+function resetConv() {
+    if (autoConvTimer) { clearInterval(autoConvTimer); autoConvTimer = null; }
+    convPos = 0;
+    featureMap = Array(4).fill(null).map(() => Array(4).fill(null));
+    buildConvInputGrid();
+    buildKernelGrid('convKernelGrid');
+    buildFeatureMapGrid();
+    const display = document.getElementById('calcDisplay');
+    if (display) display.textContent = '点击「单步」查看卷积计算过程...';
+    const status = document.getElementById('convStatus');
+    if (status) status.textContent = '位置 (0,0) — 准备开始';
+    const btnStep = document.getElementById('btnStep');
+    if (btnStep) btnStep.disabled = false;
+    const btnAuto = document.getElementById('btnAuto');
+    if (btnAuto) btnAuto.textContent = '自动演示 ⚡';
+}
+
+// ==================== STEP 3: RELU ====================
+function syncReluData() {
+    reluData = featureMap.map(row => row.map(v => v === null ? 0 : v));
+}
+
+function buildReluGrids() {
+    syncReluData();
+    const before = document.getElementById('reluBeforeGrid');
+    const after = document.getElementById('reluAfterGrid');
+    if (!before || !after) return;
+    before.innerHTML = '';
+    after.innerHTML = '';
+
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const v = reluData[r][c];
+        // before
+        const b = document.createElement('div');
+        b.className = 'feature-cell';
+        b.style.background = featureColor(v);
+        b.style.color = v > 0 ? '#166534' : v < 0 ? '#9a3412' : '#888';
+        b.textContent = v;
+        before.appendChild(b);
+        // after
+        const a = document.createElement('div');
+        a.className = 'feature-cell';
+        a.id = `relu_after_${r}_${c}`;
+        a.style.background = '#e9ecef';
+        a.textContent = '';
+        after.appendChild(a);
+    }
+}
+
+function drawReLUGraph() {
+    const canvas = document.getElementById('reluCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0,0,W,H);
+
+    // Grid lines
+    ctx.strokeStyle = '#2d4a6e';
+    ctx.lineWidth = 1;
+    for (let i=0;i<=4;i++) {
+        const x = i*W/4;
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+        const y = i*H/4;
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#4a90d9';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+
+    // ReLU curve
+    ctx.strokeStyle = '#f6d860';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, H/2);
+    ctx.lineTo(W/2, H/2);
+    ctx.lineTo(W, 0);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = '#a8d8ea';
+    ctx.font = '12px monospace';
+    ctx.fillText('ReLU(x)', W/2+5, 18);
+    ctx.fillStyle = '#888';
+    ctx.font = '11px monospace';
+    ctx.fillText('x<0: 0', 8, H/2-6);
+    ctx.fillText('x≥0: x', W/2+5, H/2-6);
+}
+
+async function animateReLU() {
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const v = reluData[r][c];
+        const activated = Math.max(0, v);
+        const el = document.getElementById(`relu_after_${r}_${c}`);
+        if (!el) continue;
+        await new Promise(res => setTimeout(res, 80));
+        el.style.background = featureColor(activated);
+        el.style.color = activated > 0 ? '#166534' : '#888';
+        el.textContent = activated;
+        // update reluData for pool step
+        reluData[r][c] = activated;
+    }
+    // sync to pool
+    buildPoolGrids();
+}
+
+// ==================== STEP 4: POOL ====================
+function buildPoolGrids() {
+    const inp = document.getElementById('poolInputGrid');
+    const out = document.getElementById('poolOutputGrid');
+    if (!inp || !out) return;
+    inp.innerHTML = '';
+    out.innerHTML = '';
+
+    const data = reluData.length ? reluData : Array(4).fill(null).map(() => Array(4).fill(0));
+
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const v = data[r][c] !== null ? data[r][c] : 0;
+        const cell = document.createElement('div');
+        cell.className = 'pool-cell';
+        cell.id = `pool_in_${r}_${c}`;
+        cell.style.background = featureColor(v);
+        cell.style.color = v > 0 ? '#166534' : '#888';
+        cell.textContent = v;
+        inp.appendChild(cell);
+    }
+
+    for (let r=0;r<2;r++) for (let c=0;c<2;c++) {
+        const cell = document.createElement('div');
+        cell.className = 'pool-cell';
+        cell.id = `pool_out_${r}_${c}`;
+        cell.style.background = '#e9ecef';
+        cell.textContent = '';
+        out.appendChild(cell);
+    }
+
+    poolPos = 0;
+    poolOutputData = Array(2).fill(null).map(() => Array(2).fill(null));
+}
+
+function stepPool() {
+    if (poolPos >= 4) {
+        document.getElementById('poolStatus').textContent = '✅ 池化完成！尺寸从 4×4 压缩到 2×2';
+        return;
+    }
+    const pr = Math.floor(poolPos / 2);
+    const pc = poolPos % 2;
+    const baseR = pr * 2, baseC = pc * 2;
+    const data = reluData.length ? reluData : Array(4).fill(null).map(() => Array(4).fill(0));
+
+    // Highlight input 2x2 window
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const el = document.getElementById(`pool_in_${r}_${c}`);
+        if (el) el.classList.remove('highlight-region');
+    }
+    let maxVal = -Infinity;
+    for (let kr=0;kr<2;kr++) for (let kc=0;kc<2;kc++) {
+        const el = document.getElementById(`pool_in_${baseR+kr}_${baseC+kc}`);
+        if (el) el.classList.add('highlight-region');
+        const v = data[baseR+kr] ? (data[baseR+kr][baseC+kc] || 0) : 0;
+        if (v > maxVal) maxVal = v;
+    }
+
+    poolOutputData[pr][pc] = maxVal;
+    const outCell = document.getElementById(`pool_out_${pr}_${pc}`);
+    if (outCell) {
+        outCell.style.background = featureColor(maxVal);
+        outCell.style.color = maxVal > 0 ? '#166534' : '#888';
+        outCell.textContent = maxVal;
+        outCell.classList.add('result-cell');
+    }
+
+    document.getElementById('poolStatus').textContent =
+        `区域 (${pr},${pc}) — 2×2窗口最大值 = ${maxVal}，已完成 ${poolPos+1}/4`;
+    poolPos++;
+}
+
+function autoPool() {
+    if (autoPoolTimer) { clearInterval(autoPoolTimer); autoPoolTimer = null; return; }
+    autoPoolTimer = setInterval(() => {
+        if (poolPos >= 4) { clearInterval(autoPoolTimer); autoPoolTimer = null; return; }
+        stepPool();
+    }, 600);
+}
+
+function resetPool() {
+    if (autoPoolTimer) { clearInterval(autoPoolTimer); autoPoolTimer = null; }
+    poolPos = 0;
+    poolOutputData = Array(2).fill(null).map(() => Array(2).fill(null));
+    buildPoolGrids();
+    document.getElementById('poolStatus').textContent = '准备演示池化...';
+}
+
+// ==================== STEP 5: FC ====================
+const CLASS_NAMES = ['猫 🐱', '狗 🐶', '鸟 🐦', '鱼 🐟'];
+
+function buildFCViz() {
+    const container = document.getElementById('fcViz');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Flatten pool output to 4 values
+    const flat = [];
+    for (let r=0;r<2;r++) for (let c=0;c<2;c++) {
+        flat.push(poolOutputData[r][c] !== null ? poolOutputData[r][c] : Math.round(Math.random()*20));
+    }
+
+    // Input layer (4 neurons)
+    const inputLayer = createLayerEl('输入层', flat.map((v,i) => ({
+        label: `x${i+1}`, value: v, color: '#667eea', id: `fc_in_${i}`
+    })), '#667eea');
+    container.appendChild(inputLayer);
+
+    container.appendChild(arrowEl());
+
+    // Hidden layer (6 neurons)
+    const hiddenLayer = createLayerEl('隐藏层', Array(6).fill(0).map((_,i) => ({
+        label: `h${i+1}`, value: '?', color: '#764ba2', id: `fc_h_${i}`
+    })), '#764ba2');
+    container.appendChild(hiddenLayer);
+
+    container.appendChild(arrowEl());
+
+    // Output layer (4 classes)
+    const scores = CLASS_NAMES.map(() => (Math.random() * 2 - 0.5).toFixed(2));
+    const softmax = computeSoftmax(scores.map(Number));
+    const outputLayer = createLayerEl('输出层\n(Softmax)', CLASS_NAMES.map((name, i) => ({
+        label: name, value: (softmax[i]*100).toFixed(1)+'%', color: softmax[i] > 0.4 ? '#16a34a' : '#e74c3c',
+        id: `fc_out_${i}`
+    })), '#16a34a');
+    container.appendChild(outputLayer);
+}
+
+function createLayerEl(title, neurons, color) {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '6px';
+
+    const t = document.createElement('div');
+    t.style.fontSize = '0.75em';
+    t.style.color = '#888';
+    t.style.textAlign = 'center';
+    t.style.whiteSpace = 'pre-line';
+    t.textContent = title;
+    wrap.appendChild(t);
+
+    neurons.forEach(n => {
+        const el = document.createElement('div');
+        el.className = 'fc-neuron';
+        el.id = n.id;
+        el.style.borderColor = n.color;
+        el.style.color = n.color;
+        el.style.opacity = '0.4';
+        el.textContent = n.value;
+        wrap.appendChild(el);
+    });
+    return wrap;
+}
+
+function arrowEl() {
+    const el = document.createElement('div');
+    el.style.fontSize = '1.8em';
+    el.style.color = '#667eea';
+    el.style.alignSelf = 'center';
+    el.textContent = '→';
+    return el;
+}
+
+function computeSoftmax(vals) {
+    const max = Math.max(...vals);
+    const exps = vals.map(v => Math.exp(v - max));
+    const sum = exps.reduce((a,b) => a+b, 0);
+    return exps.map(v => v/sum);
+}
+
+async function animateFC() {
+    // Activate input neurons
+    for (let i=0;i<4;i++) {
+        await new Promise(r => setTimeout(r, 120));
+        const el = document.getElementById(`fc_in_${i}`);
+        if (el) { el.style.opacity = '1'; el.style.background = '#dbeafe'; }
+    }
+    // Activate hidden
+    for (let i=0;i<6;i++) {
+        await new Promise(r => setTimeout(r, 100));
+        const el = document.getElementById(`fc_h_${i}`);
+        if (el) { el.style.opacity = '1'; el.style.background = '#f3e8ff'; }
+    }
+    // Activate output
+    for (let i=0;i<4;i++) {
+        await new Promise(r => setTimeout(r, 150));
+        const el = document.getElementById(`fc_out_${i}`);
+        if (el) { el.style.opacity = '1'; el.style.background = '#dcfce7'; }
+    }
+    // Find max
+    let maxPct = -1, maxIdx = 0;
+    for (let i=0;i<4;i++) {
+        const el = document.getElementById(`fc_out_${i}`);
+        if (el) {
+            const pct = parseFloat(el.textContent);
+            if (pct > maxPct) { maxPct = pct; maxIdx = i; }
+        }
+    }
+    const winner = document.getElementById(`fc_out_${maxIdx}`);
+    if (winner) {
+        winner.style.background = '#fef08a';
+        winner.style.borderWidth = '4px';
+        winner.style.transform = 'scale(1.15)';
+    }
+    document.getElementById('fcStatus').textContent =
+        `🎉 预测结果：${CLASS_NAMES[maxIdx]}（置信度 ${maxPct.toFixed(1)}%）`;
+}
+
+function restartAll() {
+    goStep(0);
+}
+
+// ==================== INFO CARDS ====================
+const infoCards = [
+    // Step 0
+    `<div class="card">
+        <h3>📷 图像是什么？</h3>
+        <p>每张图像本质上是一个<strong>数字矩阵</strong>：</p>
+        <ul style="margin-top:8px;">
+            <li>灰度图：单通道，值 0（黑）→ 255（白）</li>
+            <li>彩色图：RGB 三通道，每像素 3 个值</li>
+            <li>CNN 可同时处理多通道输入</li>
+        </ul>
+        <div class="formula">图像尺寸 = H × W × C<br>（高 × 宽 × 通道数）</div>
+    </div>
+    <div class="card">
+        <h3>🧠 为什么用 CNN？</h3>
+        <p>传统全连接网络对图像代价高昂（1080P图=622万参数/层）。CNN 通过<strong>局部感受野</strong>和<strong>权重共享</strong>大幅降低参数量，并保留空间结构信息。</p>
+    </div>`,
+
+    // Step 1
+    `<div class="card">
+        <h3>🔲 卷积核原理</h3>
+        <p>卷积核在图像上<strong>滑动</strong>，逐区域做点积运算，输出该核检测到的"特征激活强度"。</p>
+        <ul style="margin-top:8px;">
+            <li>一层 CNN 通常有 <strong>多个核</strong>（如32个）</li>
+            <li>每个核检测不同的特征（横边/竖边/斜边…）</li>
+            <li>核的权重通过<strong>反向传播</strong>自动学习</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h3>📐 输出尺寸公式</h3>
+        <div class="formula">输出 = (N - F + 1) × (N - F + 1)<br><br>N=6, F=3 → 输出 4×4</div>
+        <p style="margin-top:8px;font-size:0.85em;">加 Padding 可保持输出尺寸不缩小。</p>
+    </div>`,
+
+    // Step 2
+    `<div class="card">
+        <h3>⚡ 卷积计算步骤</h3>
+        <ol style="padding-left:16px;line-height:2;">
+            <li>将 3×3 核对准输入区域</li>
+            <li>对应位置<strong>相乘</strong></li>
+            <li>9 个乘积<strong>求和</strong></li>
+            <li>写入特征图对应位置</li>
+            <li>核向右/向下<strong>滑动 1 步</strong></li>
+        </ol>
+    </div>
+    <div class="card">
+        <h3>🌈 特征图含义</h3>
+        <p><span style="color:#16a34a">绿色</span>=正激活（特征存在），<span style="color:#e74c3c">红色</span>=负激活，<span style="color:#888">灰色</span>=无激活</p>
+        <p style="margin-top:8px;">边缘检测核在<strong>亮暗边界</strong>处会产生大的正激活值。</p>
+    </div>`,
+
+    // Step 3
+    `<div class="card">
+        <h3>⚡ 为什么需要激活函数？</h3>
+        <p>没有激活函数，多层网络等价于单层线性变换——无法学习复杂非线性特征。</p>
+        <div class="formula">ReLU(x) = max(0, x)</div>
+    </div>
+    <div class="card">
+        <h3>🔬 ReLU 的优点</h3>
+        <ul style="padding-left:16px;line-height:2;">
+            <li>计算极简，训练速度快</li>
+            <li>稀疏激活，降低过拟合</li>
+            <li>缓解梯度消失问题</li>
+            <li>变体：Leaky ReLU、ELU</li>
+        </ul>
+    </div>`,
+
+    // Step 4
+    `<div class="card">
+        <h3>📉 池化的作用</h3>
+        <ul style="padding-left:16px;line-height:2;">
+            <li><strong>降采样</strong>：4×4 → 2×2</li>
+            <li><strong>平移不变性</strong>：特征位置稍微偏移仍能识别</li>
+            <li><strong>减少参数</strong>：防止过拟合</li>
+            <li>Max Pool 保留最强响应</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h3>📐 池化参数</h3>
+        <div class="formula">窗口大小：2×2<br>步长 (stride)：2<br>输出 = ⌊(N-F)/s⌋+1</div>
+        <p style="margin-top:8px;font-size:0.85em;">Average Pooling 则取区域平均值，常用于最后一层。</p>
+    </div>`,
+
+    // Step 5
+    `<div class="card">
+        <h3>🎯 全连接层</h3>
+        <p>将所有特征图<strong>展平（Flatten）</strong>成一维向量，送入传统全连接网络。</p>
+        <ul style="margin-top:8px;padding-left:16px;line-height:2;">
+            <li>FC 层整合所有局部特征</li>
+            <li>最后一层用 <strong>Softmax</strong> 输出概率</li>
+        </ul>
+        <div class="formula">P(y=k|x) = e^{zk} / Σe^{zi}</div>
+    </div>
+    <div class="card">
+        <h3>🏗️ 完整 CNN 架构</h3>
+        <p style="line-height:2;font-size:0.85em;">
+        输入图像<br>
+        → [卷积 + ReLU] × N<br>
+        → 池化<br>
+        → [卷积 + ReLU] × M<br>
+        → 池化<br>
+        → 展平<br>
+        → 全连接<br>
+        → Softmax → 类别概率
+        </p>
+    </div>`,
+];
+
+// ==================== STEP NAVIGATION ====================
+let currentStep = 0;
+
+function goStep(n) {
+    // Hide all step content
+    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.step-btn').forEach((el,i) => {
+        el.classList.toggle('active', i === n);
+    });
+
+    const stepEl = document.getElementById(`step${n}`);
+    if (stepEl) stepEl.classList.add('active');
+
+    // Update progress
+    const pct = ((n+1)/6*100).toFixed(1);
+    document.getElementById('progressBar').style.width = pct + '%';
+
+    // Update info panel
+    document.getElementById('infoPanel').innerHTML = infoCards[n];
+
+    currentStep = n;
+
+    // Step-specific init
+    if (n === 0) buildInputGrid();
+    if (n === 1) { buildKernelGrid('kernelGrid'); }
+    if (n === 2) { buildConvInputGrid(); buildKernelGrid('convKernelGrid'); buildFeatureMapGrid(); resetConv(); }
+    if (n === 3) { syncReluData(); buildReluGrids(); drawReLUGraph(); }
+    if (n === 4) { if (!reluData.length) syncReluData(); buildPoolGrids(); }
+    if (n === 5) { buildFCViz(); }
+}
+
+// ==================== INIT ====================
+goStep(0);
+</script>
+</body>
+</html>
