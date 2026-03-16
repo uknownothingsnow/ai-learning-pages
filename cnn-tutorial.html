@@ -189,7 +189,9 @@
             position: relative;
         }
 
-        .pixel-cell.highlight-region {
+        .pixel-cell.highlight-region,
+        .pool-cell.highlight-region,
+        .feature-cell.highlight-region {
             outline: 3px solid #e74c3c;
             outline-offset: -1px;
             z-index: 2;
@@ -861,6 +863,7 @@ function buildReluGrids() {
         // before
         const b = document.createElement('div');
         b.className = 'feature-cell';
+        b.id = `relu_before_${r}_${c}`;
         b.style.background = featureColor(v);
         b.style.color = v > 0 ? '#166534' : v < 0 ? '#9a3412' : '#888';
         b.textContent = v;
@@ -923,22 +926,38 @@ function drawReLUGraph() {
 
 function applyReluCell(pos) {
     const r = Math.floor(pos / 4), c = pos % 4;
+
+    // 清除上一格高亮
+    if (pos > 0) {
+        const pr = Math.floor((pos-1) / 4), pc = (pos-1) % 4;
+        const prev = document.getElementById(`relu_before_${pr}_${pc}`);
+        if (prev) prev.classList.remove('highlight-region');
+    }
+    // 高亮当前 before 格
+    const beforeEl = document.getElementById(`relu_before_${r}_${c}`);
+    if (beforeEl) beforeEl.classList.add('highlight-region');
+
     const rawEl = document.getElementById(`relu_after_${r}_${c}`);
     if (!rawEl) return;
-    // reluData at this point still holds the pre-relu value
     const rawVal = reluData[r][c];
     const activated = Math.max(0, rawVal);
     rawEl.style.background = featureColor(activated);
     rawEl.style.color = activated > 0 ? '#166534' : '#888';
     rawEl.textContent = activated;
     reluData[r][c] = activated;
+
     const status = document.getElementById('reluStatus');
     if (status) {
-        if (rawVal < 0) {
-            status.textContent = `格 (${r},${c})：${rawVal} < 0 → 归零 ✂️`;
-        } else {
-            status.textContent = `格 (${r},${c})：${rawVal} ≥ 0 → 保留 ✅`;
-        }
+        status.textContent = rawVal < 0
+            ? `格 (${r},${c})：${rawVal} < 0 → 归零为 0 ✂️`
+            : `格 (${r},${c})：${rawVal} ≥ 0 → 保留原值 ✅`;
+    }
+}
+
+function clearReluHighlights() {
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) {
+        const el = document.getElementById(`relu_before_${r}_${c}`);
+        if (el) el.classList.remove('highlight-region');
     }
 }
 
@@ -947,6 +966,7 @@ function stepReLU() {
         const status = document.getElementById('reluStatus');
         if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
         document.getElementById('btnReluStep').disabled = true;
+        clearReluHighlights();
         buildPoolGrids();
         return;
     }
@@ -956,6 +976,7 @@ function stepReLU() {
         const status = document.getElementById('reluStatus');
         if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
         document.getElementById('btnReluStep').disabled = true;
+        clearReluHighlights();
         buildPoolGrids();
     }
 }
@@ -978,6 +999,7 @@ async function animateReLU() {
         reluPos = i + 1;
     }
     reluPos = 16;
+    clearReluHighlights();
     const status = document.getElementById('reluStatus');
     if (status) status.textContent = '✅ ReLU 激活完成！所有负值已归零';
     const btn = document.getElementById('btnReluStep');
