@@ -1136,13 +1136,14 @@ function buildFCViz() {
     const container = document.getElementById('fcViz');
     if (!container) return;
     container.innerHTML = '';
+    container.style.position = 'relative';
 
     container.appendChild(makeFCLayer('输入层\n(展平)', '#667eea',
         fcInputs.map((v,i) => ({ id:`fc_in_${i}`, label:`x${i+1}`, val:v }))));
-    container.appendChild(fcArrow());
+    container.appendChild(fcSpacer());
     container.appendChild(makeFCLayer('隐藏层\n(ReLU)', '#764ba2',
         Array(4).fill(0).map((_,i) => ({ id:`fc_h_${i}`, label:`h${i+1}`, val:'?' }))));
-    container.appendChild(fcArrow());
+    container.appendChild(fcSpacer());
     container.appendChild(makeFCLayer('输出层\n(Softmax)', '#e74c3c',
         CLASS_NAMES.map((name,i) => ({ id:`fc_out_${i}`, label:name, val:'?' }))));
 
@@ -1153,6 +1154,9 @@ function buildFCViz() {
     if (status) status.textContent = '展平 → 全连接(ReLU) → Softmax 分类';
     const btnStep = document.getElementById('btnFcStep');
     if (btnStep) btnStep.disabled = false;
+
+    // Draw connections after layout settles
+    setTimeout(() => drawFCLines(), 60);
 }
 
 function makeFCLayer(title, color, neurons) {
@@ -1173,11 +1177,95 @@ function makeFCLayer(title, color, neurons) {
     return wrap;
 }
 
-function fcArrow() {
+function fcSpacer() {
     const el = document.createElement('div');
-    el.style.cssText = 'font-size:1.8em;color:#667eea;align-self:center;';
-    el.textContent = '→';
+    el.style.cssText = 'width:56px;flex-shrink:0;';
     return el;
+}
+
+// ── SVG connection lines ──────────────────────────────
+function drawFCLines(mode, activeIdx) {
+    const container = document.getElementById('fcViz');
+    if (!container) return;
+
+    const old = container.querySelector('svg.fc-lines');
+    if (old) old.remove();
+
+    const cRect = container.getBoundingClientRect();
+    if (!cRect.width) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('fc-lines');
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0;';
+
+    function center(id) {
+        const el = document.getElementById(id);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left - cRect.left + r.width/2, y: r.top - cRect.top + r.height/2 };
+    }
+
+    function line(x1,y1,x2,y2, stroke, sw, op) {
+        const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+        l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+        l.setAttribute('stroke',stroke); l.setAttribute('stroke-width',sw);
+        l.setAttribute('opacity',op);
+        svg.appendChild(l);
+    }
+
+    function weightLabel(x, y, text, color) {
+        const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const tw = Math.max(24, String(text).length * 6 + 4);
+        bg.setAttribute('x', x - tw/2); bg.setAttribute('y', y - 7);
+        bg.setAttribute('width', tw);   bg.setAttribute('height', 13);
+        bg.setAttribute('fill','white'); bg.setAttribute('rx','2');
+        bg.setAttribute('opacity','0.9');
+        svg.appendChild(bg);
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',x); t.setAttribute('y',y);
+        t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
+        t.setAttribute('font-size','9'); t.setAttribute('font-weight','bold');
+        t.setAttribute('fill',color); t.setAttribute('font-family','monospace');
+        t.textContent = text;
+        svg.appendChild(t);
+    }
+
+    // Input → Hidden
+    for (let i=0;i<4;i++) {
+        for (let j=0;j<4;j++) {
+            const f = center(`fc_in_${i}`), t = center(`fc_h_${j}`);
+            if (!f||!t) continue;
+            const active = mode==='ih' && activeIdx===j;
+            const w = fcW1 ? fcW1[j][i] : 0;
+            if (active) {
+                const col = w >= 0 ? '#3b82f6' : '#ef4444';
+                line(f.x,f.y,t.x,t.y, col, 1.8, 0.9);
+                weightLabel(f.x+(t.x-f.x)*0.58, f.y+(t.y-f.y)*0.58, w, col);
+            } else {
+                line(f.x,f.y,t.x,t.y, '#aaa', 0.6, 0.2);
+            }
+        }
+    }
+
+    // Hidden → Output
+    for (let j=0;j<4;j++) {
+        for (let k=0;k<4;k++) {
+            const f = center(`fc_h_${j}`), t = center(`fc_out_${k}`);
+            if (!f||!t) continue;
+            const active = mode==='ho' && activeIdx===k;
+            const w = fcW2 ? fcW2[k][j] : 0;
+            if (active) {
+                const col = w >= 0 ? '#3b82f6' : '#ef4444';
+                line(f.x,f.y,t.x,t.y, col, 1.8, 0.9);
+                weightLabel(f.x+(t.x-f.x)*0.58, f.y+(t.y-f.y)*0.58, w, col);
+            } else {
+                line(f.x,f.y,t.x,t.y, '#aaa', 0.6, 0.2);
+            }
+        }
+    }
+
+    container.insertBefore(svg, container.firstChild);
 }
 
 function setNeuron(id, val, bg, color) {
@@ -1216,6 +1304,7 @@ function stepFC() {
             `x = [${fcInputs.join(', ')}]\n\n` +
             `即  x1=${fcInputs[0]},  x2=${fcInputs[1]},  x3=${fcInputs[2]},  x4=${fcInputs[3]}`;
         if (status) status.textContent = `步骤 0/9 — 展平池化输出`;
+        drawFCLines();
         fcPos = 1;
 
     } else if (fcPos >= 1 && fcPos <= 4) {
@@ -1228,10 +1317,8 @@ function stepFC() {
         fcRaw[i]    = rawSum;
         fcHidden[i] = hVal;
 
-        highlightNeurons(fcInputs.map((_,j)=>`fc_in_${j}`), true);
-        setTimeout(()=> highlightNeurons(fcInputs.map((_,j)=>`fc_in_${j}`), false), 700);
-
         setNeuron(`fc_h_${i}`, hVal, '#f3e8ff', '#7e22ce');
+        drawFCLines('ih', i);
 
         const termStr = fcInputs.map((x,j)=>`${x}×(${w[j]})`).join(' + ');
         const valStr  = terms.map(v=>v.toFixed(2)).join(' + ');
@@ -1253,10 +1340,8 @@ function stepFC() {
         const rawSum = +(terms.reduce((s,v)=>s+v,0) + b).toFixed(2);
         fcOutput[k]  = rawSum;
 
-        highlightNeurons(fcHidden.map((_,j)=>`fc_h_${j}`), true);
-        setTimeout(()=> highlightNeurons(fcHidden.map((_,j)=>`fc_h_${j}`), false), 700);
-
         setNeuron(`fc_out_${k}`, `z=${rawSum}`, '#fee2e2', '#b91c1c');
+        drawFCLines('ho', k);
 
         const termStr = fcHidden.map((h,j)=>`${h||0}×(${w[j]})`).join(' + ');
         const valStr  = terms.map(v=>v.toFixed(2)).join(' + ');
@@ -1298,6 +1383,7 @@ function stepFC() {
         if (status) status.textContent =
             `🎉 分类完成！预测：${CLASS_NAMES[maxIdx]}（置信度 ${(fcProbs[maxIdx]*100).toFixed(1)}%）`;
 
+        drawFCLines();   // restore grey lines on completion
         const btnStep = document.getElementById('btnFcStep');
         if (btnStep) btnStep.disabled = true;
         fcPos = 10;
