@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>注意力机制与 Transformer — 交互式教程</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);
+    min-height:100vh;color:#e0e0e0;
+  }
+  /* ── NAV ── */
+  .nav-wrap{position:sticky;top:0;z-index:100;padding:14px 20px;
+    background:rgba(15,20,40,0.88);backdrop-filter:blur(12px);
+    border-bottom:1px solid rgba(255,255,255,0.08);}
+  .nav-title{text-align:center;font-size:1.1rem;font-weight:700;
+    letter-spacing:.06em;color:#a9c4f5;margin-bottom:10px;}
+  .nav-pills{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;}
+  .pill{padding:7px 15px;border-radius:20px;border:none;cursor:pointer;
+    font-size:.78rem;font-weight:600;transition:all .25s;
+    background:rgba(255,255,255,0.08);color:#b0c4de;letter-spacing:.03em;}
+  .pill:hover{background:rgba(255,255,255,0.16);}
+  .pill.active{background:linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff;box-shadow:0 3px 12px rgba(102,126,234,0.5);}
+  /* ── CONTAINER ── */
+  .container{max-width:1300px;margin:0 auto;padding:24px 20px;}
+  /* ── STEP PANEL ── */
+  .step-panel{display:none;}
+  .step-panel.active{display:flex;gap:22px;align-items:flex-start;}
+  @media(max-width:900px){.step-panel.active{flex-direction:column;}}
+  /* ── VIZ / INFO ── */
+  .viz-panel{flex:1.2;min-width:0;background:rgba(255,255,255,0.04);
+    border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,0.07);}
+  .info-panel{width:360px;flex-shrink:0;}
+  @media(max-width:900px){.info-panel{width:100%;}}
+  .info-card{background:#fff;border-radius:14px;padding:22px;color:#1a1a2e;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);}
+  .info-card h3{font-size:1.05rem;color:#4a3f8a;margin-bottom:12px;
+    padding-bottom:8px;border-bottom:2px solid #e8e0f8;}
+  .info-card p,.info-card li{font-size:.88rem;line-height:1.7;color:#333;}
+  .info-card ul{padding-left:18px;margin-top:8px;}
+  .info-card li{margin-bottom:5px;}
+  /* formula box */
+  .formula-box{background:#1a1a2e;border-radius:10px;padding:14px 18px;
+    margin:12px 0;font-family:'Courier New',monospace;font-size:.82rem;
+    border-left:3px solid #667eea;}
+  .formula-box .hl{color:#f6d860;}
+  .formula-box .hl2{color:#7ee8a2;}
+  .formula-box .hl3{color:#ff8fab;}
+  /* ── STEP TITLE ── */
+  .step-title{font-size:1.15rem;font-weight:700;color:#a9c4f5;margin-bottom:16px;
+    display:flex;align-items:center;gap:10px;}
+  .step-badge{background:linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff;border-radius:50%;width:28px;height:28px;display:flex;
+    align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;}
+  /* ── BUTTONS ── */
+  .btn{padding:8px 18px;border-radius:10px;border:none;cursor:pointer;
+    font-size:.82rem;font-weight:600;transition:all .2s;}
+  .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;}
+  .btn-primary:hover{opacity:.85;transform:translateY(-1px);}
+  .btn-secondary{background:rgba(255,255,255,0.1);color:#d0d8f0;border:1px solid rgba(255,255,255,0.15);}
+  .btn-secondary:hover{background:rgba(255,255,255,0.18);}
+  .btn-sm{padding:5px 12px;font-size:.75rem;}
+  .btn-group{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+  /* ── HEATMAP ── */
+  .heatmap-grid{display:grid;gap:2px;}
+  .heatmap-cell{border-radius:3px;display:flex;align-items:center;
+    justify-content:center;font-size:.6rem;color:rgba(255,255,255,0.8);
+    transition:all .3s;cursor:default;}
+  /* ── ATTENTION WORDS ── */
+  .word-list{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+  .word-token{padding:5px 10px;border-radius:8px;font-size:.82rem;
+    cursor:pointer;transition:all .25s;border:1px solid transparent;}
+  .word-en{background:rgba(255,255,255,0.07);color:#c8d8f0;}
+  .word-zh{background:rgba(102,126,234,0.15);color:#a0b8f0;
+    border:1px solid rgba(102,126,234,0.3);cursor:pointer;}
+  .word-zh:hover,.word-zh.selected{background:linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff;border-color:transparent;}
+  /* ── QKV ANIM ── */
+  .seq-row{display:flex;gap:8px;align-items:center;margin:8px 0;}
+  .seq-box{padding:6px 12px;border-radius:8px;font-size:.8rem;font-weight:600;
+    text-align:center;min-width:52px;transition:all .3s;}
+  .box-q{background:rgba(102,126,234,0.25);color:#a0b8f0;border:1px solid rgba(102,126,234,0.4);}
+  .box-k{background:rgba(118,75,162,0.25);color:#c0a0f0;border:1px solid rgba(118,75,162,0.4);}
+  .box-v{background:rgba(126,232,162,0.2);color:#7ee8a2;border:1px solid rgba(126,232,162,0.4);}
+  .box-x{background:rgba(255,255,255,0.08);color:#d0d8f0;border:1px solid rgba(255,255,255,0.15);}
+  .box-out{background:rgba(246,216,96,0.2);color:#f6d860;border:1px solid rgba(246,216,96,0.4);}
+  .highlight-box{box-shadow:0 0 12px rgba(246,216,96,0.6);transform:scale(1.05);}
+  /* scores */
+  .score-row{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:.78rem;}
+  .score-bar{height:14px;border-radius:4px;transition:width .5s ease;
+    background:linear-gradient(90deg,#667eea,#764ba2);}
+  /* ── MULTI-HEAD ── */
+  .head-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .head-card{border-radius:10px;padding:10px;transition:all .3s;}
+  .head-card h4{font-size:.75rem;font-weight:700;margin-bottom:8px;text-align:center;}
+  /* ── ARCH ── */
+  .arch-block{padding:10px 16px;border-radius:10px;text-align:center;
+    cursor:pointer;transition:all .25s;font-size:.82rem;font-weight:600;
+    margin:4px 0;border:2px solid transparent;}
+  .arch-block:hover{transform:translateX(4px);}
+  .arch-block.hl-arch{border-color:#f6d860;box-shadow:0 0 14px rgba(246,216,96,0.4);}
+  /* ── MASK MATRIX ── */
+  .mask-grid{display:grid;gap:2px;}
+  .mask-cell{border-radius:3px;display:flex;align-items:center;
+    justify-content:center;font-size:.65rem;font-weight:700;transition:all .4s;}
+  .mask-allow{background:rgba(126,232,162,0.3);color:#7ee8a2;}
+  .mask-block{background:rgba(30,30,50,0.9);color:#444;}
+  .mask-new{background:rgba(246,216,96,0.35);color:#f6d860;}
+  /* ── PROB BARS ── */
+  .prob-row{display:flex;align-items:center;gap:8px;margin:4px 0;}
+  .prob-label{font-size:.75rem;min-width:60px;color:#c0c8e0;}
+  .prob-bar-wrap{flex:1;background:rgba(255,255,255,0.07);border-radius:4px;height:16px;}
+  .prob-bar{height:100%;border-radius:4px;transition:width .5s ease;
+    background:linear-gradient(90deg,#667eea,#764ba2);}
+  /* ── CANVAS ── */
+  canvas{display:block;}
+  .canvas-wrap{border-radius:10px;overflow:hidden;background:#0a0d1a;}
+  /* ── TABS ── */
+  .tab-bar{display:flex;gap:6px;margin-bottom:14px;}
+  .tab-btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;
+    font-size:.78rem;font-weight:600;transition:all .2s;
+    background:rgba(255,255,255,0.07);color:#a0b0d0;}
+  .tab-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;}
+  /* ── EXPAND CARDS ── */
+  .expand-card{background:rgba(255,255,255,0.04);border-radius:10px;
+    margin:8px 0;border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
+  .expand-header{padding:10px 14px;cursor:pointer;display:flex;
+    justify-content:space-between;align-items:center;font-size:.83rem;
+    font-weight:600;color:#b0c4de;transition:background .2s;}
+  .expand-header:hover{background:rgba(255,255,255,0.05);}
+  .expand-body{padding:14px;display:none;font-size:.8rem;color:#c0cce0;}
+  .expand-body.open{display:block;}
+  .arrow{transition:transform .2s;}
+  .arrow.open{transform:rotate(90deg);}
+  /* ── GENERATED TEXT ── */
+  .gen-text{font-size:1.1rem;font-weight:700;letter-spacing:.04em;
+    padding:12px 18px;background:rgba(102,126,234,0.12);border-radius:10px;
+    border-left:3px solid #667eea;color:#c8d8ff;margin:10px 0;min-height:46px;}
+  .gen-word{display:inline-block;transition:all .3s;}
+  .gen-word.new-word{color:#f6d860;animation:pop .4s ease;}
+  @keyframes pop{0%{transform:scale(1.4) translateY(-4px);opacity:0}
+    60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+  /* ── PE CANVAS ── */
+  .pe-toggle{margin:8px 0;}
+  /* ── COMPLEXITY LEGEND ── */
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:.78rem;margin:3px 0;}
+  .legend-dot{width:10px;height:10px;border-radius:50%;}
+  /* misc */
+  .label{font-size:.72rem;color:#8090b0;margin-bottom:4px;}
+  .divider{height:1px;background:rgba(255,255,255,0.07);margin:12px 0;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:5px;
+    font-size:.7rem;font-weight:700;margin:2px;}
+  .tag-blue{background:rgba(102,126,234,0.25);color:#a0b8f0;}
+  .tag-green{background:rgba(126,232,162,0.2);color:#7ee8a2;}
+  .tag-yellow{background:rgba(246,216,96,0.2);color:#f6d860;}
+  .tag-red{background:rgba(255,100,100,0.2);color:#ff8888;}
+  .info-block{background:rgba(102,126,234,0.08);border-radius:10px;
+    padding:12px;margin:10px 0;border-left:3px solid #667eea;font-size:.83rem;color:#b0c4de;}
+</style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-title">⚡ 注意力机制与 Transformer — 交互式教程</div>
+  <div class="nav-pills">
+    <button class="pill active" onclick="goStep(0)">Step 0 · 注意力直觉</button>
+    <button class="pill" onclick="goStep(1)">Step 1 · Q K V 计算</button>
+    <button class="pill" onclick="goStep(2)">Step 2 · 多头注意力</button>
+    <button class="pill" onclick="goStep(3)">Step 3 · Transformer 架构</button>
+    <button class="pill" onclick="goStep(4)">Step 4 · Decoder-only GPT</button>
+    <button class="pill" onclick="goStep(5)">Step 5 · 数学与复杂度</button>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 0 · 注意力机制直觉
+═══════════════════════════════════════════════════ -->
+<div class="step-panel active" id="step-0">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">0</div>注意力机制直觉：翻译中的聚焦</div>
+
+    <div class="label">👇 点击中文词，观察英语词的注意力权重高亮</div>
+    <div class="label" style="margin-top:8px">英语原句：</div>
+    <div class="word-list" id="en-words"></div>
+
+    <div class="label" style="margin-top:12px">中文翻译词（点击任意词）：</div>
+    <div class="word-list" id="zh-words"></div>
+
+    <div class="divider"></div>
+    <div class="label">📊 4×4 注意力热图（行=中文输出，列=英语输入）</div>
+    <div style="margin-top:8px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <div id="heatmap-0" class="heatmap-grid" style="grid-template-columns:repeat(4,1fr);width:200px;"></div>
+        <div style="margin-top:6px;display:flex;gap:4px;justify-content:center;font-size:.65rem;color:#8090b0;">
+          <span>The</span><span style="margin:0 4px">animal</span><span style="margin:0 4px">cross</span><span>it</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:160px;">
+        <div class="info-block" id="attn-desc">← 点击中文词查看注意力分布</div>
+        <div class="label" style="margin-top:8px">颜色越深 = 权重越高</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <div style="width:80px;height:12px;border-radius:4px;background:linear-gradient(90deg,rgba(102,126,234,0.1),rgba(102,126,234,1));"></div>
+          <span style="font-size:.7rem;color:#8090b0">低 → 高</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card">
+      <h3>🧠 Attention 解决 Seq2Seq 瓶颈</h3>
+      <p>传统 Seq2Seq 将整句压缩为一个固定长度的向量——<strong>信息瓶颈</strong>。</p>
+      <div class="formula-box">
+        <span class="hl3">瓶颈：</span> h_final → Decoder<br>
+        <span style="color:#8090b0">长句末尾细节丢失 😢</span>
+      </div>
+      <p>Attention 让 Decoder 在每步生成时，<strong>动态查看所有 Encoder 隐藏状态</strong>，按相关性加权求和。</p>
+      <div class="formula-box">
+        <span class="hl">context</span> = Σ <span class="hl2">α_i</span> · h_i<br>
+        <span class="hl2">α_i</span> = softmax(<span class="hl3">score</span>(s, h_i))
+      </div>
+      <ul>
+        <li>每个输出词关注<strong>不同位置</strong>的输入</li>
+        <li>权重 α 可解释 → 模型可解释性</li>
+        <li>解决长距离依赖</li>
+      </ul>
+      <div class="info-block">
+        💡 这正是 Transformer 的核心思想：<strong>让每个位置都能直接"看到"所有其他位置</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 1 · Q K V
+═══════════════════════════════════════════════════ -->
+<div class="step-panel" id="step-1">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">1</div>Q · K · V 注意力计算</div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary btn-sm" onclick="qkvNext()">▶ 下一步</button>
+      <button class="btn btn-secondary btn-sm" onclick="qkvReset()">↺ 重置</button>
+    </div>
+    <div id="qkv-step-label" style="font-size:.78rem;color:#f6d860;margin-bottom:10px;min-height:22px;"></div>
+
+    <div id="qkv-stage-0" class="qkv-stage">
+      <div class="label">输入序列（嵌入向量）：</div>
+      <div class="seq-row">
+        <div class="seq-box box-x" id="x1">x₁<br><span style="font-size:.65rem">「今」</span></div>
+        <div class="seq-box box-x" id="x2">x₂<br><span style="font-size:.65rem">「天」</span></div>
+        <div class="seq-box box-x" id="x3">x₃<br><span style="font-size:.65rem">「好」</span></div>
+      </div>
+    </div>
+
+    <div id="qkv-stage-1" class="qkv-stage" style="display:none">
+      <div class="label">通过 W^Q, W^K, W^V 矩阵投影：</div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;font-size:.75rem;width:100%">
+          <thead>
+            <tr>
+              <th style="padding:5px 8px;color:#8090b0">词</th>
+              <th style="padding:5px 8px;color:#a0b8f0">Query (Q)</th>
+              <th style="padding:5px 8px;color:#c0a0f0">Key (K)</th>
+              <th style="padding:5px 8px;color:#7ee8a2">Value (V)</th>
+            </tr>
+          </thead>
+          <tbody id="qkv-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="qkv-stage-2" class="qkv-stage" style="display:none">
+      <div class="label">Score = Q · Kᵀ / √d_k（以 Q₁ 为查询）：</div>
+      <div id="score-display"></div>
+    </div>
+
+    <div id="qkv-stage-3" class="qkv-stage" style="display:none">
+      <div class="label">Softmax → 注意力权重：</div>
+      <div id="softmax-display"></div>
+    </div>
+
+    <div id="qkv-stage-4" class="qkv-stage" style="display:none">
+      <div class="label">加权求和 → 输出 Z₁：</div>
+      <div id="output-display"></div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card">
+      <h3>📐 Attention 核心公式</h3>
+      <div class="formula-box">
+        <span class="hl">Attention</span>(Q,K,V) =<br>
+        &nbsp;&nbsp;<span class="hl2">Softmax</span>(<span class="hl">Q</span><span class="hl3">Kᵀ</span> / <span class="hl2">√d_k</span>) · <span class="hl3">V</span>
+      </div>
+      <ul>
+        <li><strong style="color:#a0b8f0">Q</strong>（Query）：当前词在"问"什么</li>
+        <li><strong style="color:#c0a0f0">K</strong>（Key）：每个词的"索引"</li>
+        <li><strong style="color:#7ee8a2">V</strong>（Value）：实际携带的内容</li>
+        <li><strong style="color:#f6d860">√d_k</strong>：缩放因子，防止梯度消失</li>
+      </ul>
+      <div class="divider"></div>
+      <p><strong>类比数据库查询：</strong></p>
+      <div class="formula-box" style="font-size:.75rem">
+        Q = 搜索关键词<br>
+        K = 数据库索引<br>
+        V = 实际数据内容<br>
+        <span class="hl">score</span> = Q·K 的相似度<br>
+        <span class="hl2">权重</span> = softmax(score)<br>
+        <span class="hl3">输出</span> = Σ(权重 × V)
+      </div>
+      <div class="info-block">
+        💡 <strong>为什么除以 √d_k？</strong><br>
+        高维向量点积会很大，导致 Softmax 输出极端，梯度几乎为0。除以 √d_k 可稳定训练。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 2 · 多头注意力
+═══════════════════════════════════════════════════ -->
+<div class="step-panel" id="step-2">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">2</div>多头注意力 Multi-Head Attention</div>
+
+    <div class="btn-group" id="head-btns">
+      <button class="btn btn-primary btn-sm" onclick="showHead(0)">头 1</button>
+      <button class="btn btn-secondary btn-sm" onclick="showHead(1)">头 2</button>
+      <button class="btn btn-secondary btn-sm" onclick="showHead(2)">头 3</button>
+      <button class="btn btn-secondary btn-sm" onclick="showHead(3)">头 4</button>
+      <button class="btn btn-secondary btn-sm" onclick="showAllHeads()">全部并行</button>
+    </div>
+
+    <div id="head-desc" style="font-size:.78rem;color:#f6d860;min-height:22px;margin-bottom:10px;"></div>
+
+    <div id="single-head-view">
+      <div class="label" id="head-title">头 1：句法依存关系</div>
+      <div id="heatmap-1" class="heatmap-grid" style="grid-template-columns:repeat(4,1fr);width:220px;margin:8px 0;"></div>
+      <div style="font-size:.65rem;color:#8090b0;display:flex;gap:8px;margin-left:4px;">
+        <span>The</span><span>animal</span><span>street</span><span>tired</span>
+      </div>
+      <div style="font-size:.65rem;color:#8090b0;margin-top:4px;">↑ 列 = 被关注的词 &nbsp; 行 = 关注来源</div>
+    </div>
+
+    <div id="all-heads-view" style="display:none">
+      <div class="head-grid" id="head-grid-all"></div>
+      <div class="divider"></div>
+      <div class="label">Concat → Linear 变换合并：</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;">
+        <div class="seq-box box-q" style="font-size:.7rem">Head₁</div>
+        <div class="seq-box box-k" style="font-size:.7rem">Head₂</div>
+        <div class="seq-box box-v" style="font-size:.7rem">Head₃</div>
+        <div class="seq-box box-out" style="font-size:.7rem">Head₄</div>
+        <div style="font-size:.9rem;color:#8090b0">→</div>
+        <div class="seq-box" style="background:rgba(255,140,0,0.2);color:#ffa040;border:1px solid rgba(255,140,0,0.4);font-size:.7rem">Concat</div>
+        <div style="font-size:.9rem;color:#8090b0">→</div>
+        <div class="seq-box box-out" style="font-size:.7rem">W^O · Z</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card">
+      <h3>🔀 多头注意力的价值</h3>
+      <div class="formula-box">
+        <span class="hl">MultiHead</span>(Q,K,V) =<br>
+        &nbsp;&nbsp;<span class="hl2">Concat</span>(head₁,...,headₕ)<span class="hl3">W^O</span><br><br>
+        head_i = <span class="hl">Attention</span>(<span class="hl2">QW_i^Q</span>, <span class="hl3">KW_i^K</span>, <span class="hl2">VW_i^V</span>)
+      </div>
+      <p><strong>各头关注不同特征：</strong></p>
+      <ul>
+        <li><span class="tag tag-blue">头 1</span> 句法依存（主谓宾）</li>
+        <li><span class="tag tag-green">头 2</span> 语义相似度</li>
+        <li><span class="tag tag-yellow">头 3</span> 长距离指代</li>
+        <li><span class="tag tag-red">头 4</span> 位置邻近关系</li>
+      </ul>
+      <div class="divider"></div>
+      <p><strong>参数效率：</strong></p>
+      <p style="margin-top:5px">h 个头，每头维度 d_k = d_model/h，总参数量不变，但表达能力×h 倍。</p>
+      <div class="info-block">
+        💡 多头 = 用多个"视角"看同一句话，然后综合判断，类似专家团队投票。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 3 · Transformer 架构
+═══════════════════════════════════════════════════ -->
+<div class="step-panel" id="step-3">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">3</div>Transformer 完整架构</div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchArch('encoder',this)">🔷 Encoder</button>
+      <button class="tab-btn" onclick="switchArch('decoder',this)">🔶 Decoder</button>
+    </div>
+
+    <div id="arch-encoder">
+      <div class="label" style="margin-bottom:8px">点击任意组件了解详情 →</div>
+      <div id="arch-stack-enc"></div>
+    </div>
+    <div id="arch-decoder" style="display:none">
+      <div class="label" style="margin-bottom:8px">点击任意组件了解详情 →</div>
+      <div id="arch-stack-dec"></div>
+    </div>
+
+    <div class="pe-toggle" style="margin-top:12px">
+      <button class="btn btn-secondary btn-sm" onclick="togglePE()">📊 展开/收起位置编码热图</button>
+    </div>
+    <div id="pe-panel" style="display:none;margin-top:8px">
+      <div class="label">位置编码 PE(pos, 2i) = sin(pos/10000^(2i/d))</div>
+      <div class="canvas-wrap" style="margin-top:6px">
+        <canvas id="pe-canvas" style="max-width:100%"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card" id="arch-info-card">
+      <h3>🏗️ Transformer 架构总览</h3>
+      <p>点击左侧架构图中的任意模块，查看详细说明。</p>
+      <div class="divider"></div>
+      <p><strong>关键设计：</strong></p>
+      <ul>
+        <li><strong>残差连接：</strong> x + Sublayer(x)，防止梯度消失</li>
+        <li><strong>LayerNorm：</strong> 归一化每层输出，稳定训练</li>
+        <li><strong>N=6 层：</strong> 原始论文堆叠6层</li>
+        <li><strong>d_model=512：</strong> 嵌入维度</li>
+      </ul>
+      <div class="formula-box">
+        <span class="hl">输出</span> = LayerNorm(x + <span class="hl2">SubLayer</span>(x))<br>
+        <span style="color:#8090b0;font-size:.75rem">SubLayer = MHA 或 FFN</span>
+      </div>
+      <div class="info-block" id="arch-extra-info">
+        💡 Encoder 产生上下文表示；Decoder 通过 Cross-Attention 查询 Encoder 输出
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 4 · Decoder-only GPT
+═══════════════════════════════════════════════════ -->
+<div class="step-panel" id="step-4">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">4</div>Decoder-only：GPT 自回归生成</div>
+
+    <div class="label">因果掩码矩阵（上三角遮蔽未来词）：</div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin:10px 0;">
+      <div>
+        <div id="mask-matrix" class="mask-grid" style="grid-template-columns:repeat(5,1fr);width:195px;"></div>
+        <div style="margin-top:4px;display:flex;gap:8px;font-size:.62rem;color:#8090b0;">
+          <span>T</span><span>is</span><span>a</span><span>beau</span><span>day</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div class="label">当前生成文本：</div>
+        <div class="gen-text" id="gen-text-display">Today</div>
+        <div class="btn-group" style="margin-top:8px">
+          <button class="btn btn-primary btn-sm" onclick="genNextWord()">▶ 下一个词</button>
+          <button class="btn btn-secondary btn-sm" id="auto-btn" onclick="autoGen()">⚡ 自动生成</button>
+          <button class="btn btn-secondary btn-sm" onclick="genReset()">↺ 重置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="label">候选词概率分布（前 5）：</div>
+    <div id="prob-display" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card">
+      <h3>🤖 BERT vs GPT vs T5</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+          <thead>
+            <tr style="border-bottom:2px solid #e8e0f8">
+              <th style="padding:5px;text-align:left;color:#4a3f8a">模型</th>
+              <th style="padding:5px;color:#4a3f8a">架构</th>
+              <th style="padding:5px;color:#4a3f8a">掩码</th>
+              <th style="padding:5px;color:#4a3f8a">用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #f0e8ff">
+              <td style="padding:5px"><strong>BERT</strong></td>
+              <td style="padding:5px;text-align:center"><span class="tag tag-blue">Encoder</span></td>
+              <td style="padding:5px;text-align:center">双向</td>
+              <td style="padding:5px">理解任务</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f0e8ff">
+              <td style="padding:5px"><strong>GPT</strong></td>
+              <td style="padding:5px;text-align:center"><span class="tag tag-red">Decoder</span></td>
+              <td style="padding:5px;text-align:center">因果</td>
+              <td style="padding:5px">生成任务</td>
+            </tr>
+            <tr>
+              <td style="padding:5px"><strong>T5</strong></td>
+              <td style="padding:5px;text-align:center"><span class="tag tag-green">Enc+Dec</span></td>
+              <td style="padding:5px;text-align:center">混合</td>
+              <td style="padding:5px">Seq2Seq</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="divider"></div>
+      <p><strong>GPT 自回归原理：</strong></p>
+      <div class="formula-box">
+        P(x₁,...,xₙ) = ∏ P(<span class="hl">xₜ</span> | <span class="hl2">x₁,...,xₜ₋₁</span>)<br><br>
+        <span style="color:#8090b0;font-size:.74rem">每次只看过去，生成下一个词</span>
+      </div>
+      <div class="info-block">
+        💡 <strong>Causal Mask：</strong>将注意力矩阵上三角置为 -∞，Softmax 后为 0，使模型无法"看见"未来词。
+      </div>
+      <p style="margin-top:10px;font-size:.82rem"><strong>Training:</strong> 每个位置都有监督信号（teacher forcing）</p>
+      <p style="margin-top:5px;font-size:.82rem"><strong>Inference:</strong> 自回归，逐词生成</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     STEP 5 · 数学原理与复杂度
+═══════════════════════════════════════════════════ -->
+<div class="step-panel" id="step-5">
+  <div class="viz-panel">
+    <div class="step-title"><div class="step-badge">5</div>数学原理与计算复杂度</div>
+
+    <div class="label">RNN vs Transformer 复杂度对比（O(n) vs O(n²)）：</div>
+    <div class="canvas-wrap" style="margin:10px 0">
+      <canvas id="complexity-canvas" style="max-width:100%"></canvas>
+    </div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="legend-item"><div class="legend-dot" style="background:#667eea"></div><span>Transformer O(n²·d)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7ee8a2"></div><span>RNN O(n·d²)</span></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="label">并行性对比：</div>
+    <div id="parallel-bars" style="margin:8px 0;"></div>
+
+    <div class="divider"></div>
+    <div class="label">关键方程（点击展开）：</div>
+    <div id="eq-cards"></div>
+  </div>
+
+  <div class="info-panel">
+    <div class="info-card">
+      <h3>🌍 Transformer 家族</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <span class="tag tag-blue">BERT</span>
+        <span class="tag tag-red">GPT-1/2/3/4</span>
+        <span class="tag tag-green">T5</span>
+        <span class="tag tag-yellow">ViT</span>
+        <span class="tag tag-blue">RoBERTa</span>
+        <span class="tag tag-red">LLaMA</span>
+        <span class="tag tag-green">BART</span>
+        <span class="tag tag-yellow">CLIP</span>
+        <span class="tag tag-blue">XLNet</span>
+        <span class="tag tag-red">PaLM</span>
+        <span class="tag tag-green">Gemini</span>
+        <span class="tag tag-yellow">Sora</span>
+      </div>
+      <div class="divider"></div>
+      <p><strong>复杂度对比：</strong></p>
+      <div class="formula-box" style="font-size:.78rem">
+        <span class="hl">Self-Attn：</span> O(n²·d) 时间<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;O(n²) 空间<br>
+        <span class="hl2">RNN：</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; O(n·d²) 时间<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;O(d) 空间<br>
+        <span class="hl3">CNN：</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; O(k·n·d²) 时间
+      </div>
+      <div class="divider"></div>
+      <p><strong>为什么 Transformer 称霸？</strong></p>
+      <ul>
+        <li>✅ 完全并行（GPU 友好）</li>
+        <li>✅ 任意距离依赖 O(1) 跳</li>
+        <li>✅ 可堆叠，规模化扩展</li>
+        <li>⚠️ 二次复杂度（长序列挑战）</li>
+      </ul>
+      <div class="info-block">
+        💡 Flash Attention / Sparse Attention / Mamba 等改进正在解决 O(n²) 瓶颈
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+'use strict';
+// ═══════════════════════ GLOBALS ═══════════════════════
+let currentStep = 0;
+const pills = document.querySelectorAll('.pill');
+
+// HiDPI canvas helper
+function hdpiCanvas(canvas, w, h){
+  const dpr = window.devicePixelRatio||1;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  canvas.style.width = w+'px'; canvas.style.height = h+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  return ctx;
+}
+
+// Color interpolation
+function lerp(a,b,t){return a+(b-a)*t;}
+function attnColor(w){
+  // 0→dark blue, 1→bright purple
+  const r=Math.round(lerp(30,102,w));
+  const g=Math.round(lerp(40,126,w));
+  const b2=Math.round(lerp(80,234,w));
+  return `rgba(${r},${g},${b2},${0.2+w*0.8})`;
+}
+
+// ═══════════════════════ NAVIGATION ═══════════════════════
+function goStep(n){
+  document.getElementById('step-'+currentStep).classList.remove('active');
+  pills[currentStep].classList.remove('active');
+  currentStep = n;
+  document.getElementById('step-'+n).classList.add('active');
+  pills[n].classList.add('active');
+  initStep(n);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function initStep(n){
+  if(n===0) initStep0();
+  if(n===1) initStep1();
+  if(n===2) initStep2();
+  if(n===3) initStep3();
+  if(n===4) initStep4();
+  if(n===5) initStep5();
+}
+
+// ═══════════════════════ STEP 0 ═══════════════════════
+const enWords = ['The','animal','didn\'t','cross','the','street','because','it','was','tired'];
+const zhWords = ['那只','动物','没有','穿过','街道','因为','它','累了'];
+
+// attention weights [zh_idx][en_word_representative]
+// using 4 rep english words: The(0), animal(1), cross(3), it(7)
+const attnWeights = [
+  // 那只
+  [0.8, 0.6, 0.1, 0.05],
+  // 动物
+  [0.3, 0.95, 0.1, 0.25],
+  // 没有
+  [0.1, 0.2, 0.3, 0.1],
+  // 穿过
+  [0.1, 0.15, 0.9, 0.1],
+  // 街道
+  [0.05, 0.1, 0.6, 0.05],
+  // 因为
+  [0.15, 0.2, 0.1, 0.1],
+  // 它
+  [0.2, 0.7, 0.1, 0.85],
+  // 累了
+  [0.1, 0.3, 0.05, 0.75],
+];
+
+const attnDescText = [
+  '"那只" 主要关注 "The"（定冠词）和 "animal"（名词）',
+  '"动物" 强烈关注 "animal"，也注意 "it"（指代）',
+  '"没有" 关注否定词 "didn\'t" 区域',
+  '"穿过" 高度关注 "cross"（对应动词）',
+  '"街道" 关注 "street"（直接对应）',
+  '"因为" 关注 "because"（连词）',
+  '"它" 强烈关注 "it" 和 "animal"（指代消解）',
+  '"累了" 关注 "tired" 和 "it"（主语）',
+];
+
+function initStep0(){
+  // English words
+  const enContainer = document.getElementById('en-words');
+  enContainer.innerHTML='';
+  enWords.forEach((w,i)=>{
+    const d=document.createElement('div');
+    d.className='word-token word-en';
+    d.id='en-word-'+i;
+    d.textContent=w;
+    enContainer.appendChild(d);
+  });
+
+  // Chinese words
+  const zhContainer = document.getElementById('zh-words');
+  zhContainer.innerHTML='';
+  zhWords.forEach((w,i)=>{
+    const d=document.createElement('div');
+    d.className='word-token word-zh';
+    d.textContent=w;
+    d.onclick=()=>selectZhWord(i);
+    zhContainer.appendChild(d);
+  });
+
+  // Heatmap
+  buildHeatmap0();
+  selectZhWord(1); // default
+}
+
+function buildHeatmap0(){
+  const grid=document.getElementById('heatmap-0');
+  grid.innerHTML='';
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const cell=document.createElement('div');
+      cell.className='heatmap-cell';
+      cell.style.width='46px';cell.style.height='36px';
+      cell.id='hm0-'+r+'-'+c;
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function selectZhWord(idx){
+  // highlight zh
+  document.querySelectorAll('.word-zh').forEach((el,i)=>{
+    el.classList.toggle('selected',i===idx);
+  });
+
+  const ws = attnWeights[idx]; // 4 values
+  // Map 4 rep en-word indices to highlight: 0,1,3,7
+  const repIdx=[0,1,3,7];
+  enWords.forEach((_,i)=>{
+    const el=document.getElementById('en-word-'+i);
+    if(!el)return;
+    let weight=0.05;
+    const ri=repIdx.indexOf(i);
+    if(ri>=0) weight=ws[ri];
+    // map i to nearest rep
+    else if(i<2) weight=ws[0]*(1-(i*0.2));
+    else if(i<5) weight=(ws[1]+ws[2])/2;
+    else weight=(ws[2]+ws[3])/2;
+    weight=Math.min(1,Math.max(0.05,weight));
+    el.style.background=attnColor(weight);
+    el.style.transform=`scale(${0.9+weight*0.2})`;
+  });
+
+  // update heatmap (row = zh 0..3, col = en 0..3)
+  const zhRow=Math.floor(idx/2);
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const cell=document.getElementById('hm0-'+r+'-'+c);
+      let w=(r===zhRow) ? ws[c] : Math.random()*0.3+0.05;
+      if(r===zhRow) w=ws[c];
+      else w=attnWeights[Math.min(r*2,7)][c]*0.5;
+      cell.style.background=attnColor(w);
+      cell.textContent=w.toFixed(2);
+    }
+  }
+
+  document.getElementById('attn-desc').textContent='💬 '+attnDescText[idx];
+}
+
+// ═══════════════════════ STEP 1 ═══════════════════════
+let qkvStep = -1;
+const qkvData={
+  words:['今','天','好'],
+  Q:[[1.2,0.8],[0.9,1.1],[0.7,1.3]],
+  K:[[1.0,0.9],[1.1,0.7],[0.8,1.2]],
+  V:[[0.5,0.3],[0.4,0.6],[0.7,0.2]],
+};
+
+function initStep1(){
+  qkvReset();
+}
+
+function qkvReset(){
+  qkvStep=-1;
+  ['qkv-stage-0','qkv-stage-1','qkv-stage-2','qkv-stage-3','qkv-stage-4'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=i===0?'block':'none';
+  });
+  document.getElementById('qkv-step-label').textContent='点击"下一步"开始动画';
+}
+
+function qkvNext(){
+  qkvStep++;
+  const stages=['qkv-stage-0','qkv-stage-1','qkv-stage-2','qkv-stage-3','qkv-stage-4'];
+  const labels=[
+    '步骤 1 / 4：输入词嵌入 x₁, x₂, x₃',
+    '步骤 2 / 4：通过 W^Q, W^K, W^V 矩阵投影',
+    '步骤 3 / 4：计算注意力得分 Q·Kᵀ / √d_k',
+    '步骤 4 / 4：Softmax 归一化得到权重',
+    '完成：加权求和 → 输出向量 Z₁',
+  ];
+  if(qkvStep>=stages.length){qkvStep=stages.length-1;return;}
+  stages.forEach((id,i)=>{
+    document.getElementById(id).style.display=i<=qkvStep?'block':'none';
+  });
+  document.getElementById('qkv-step-label').textContent=labels[qkvStep];
+
+  if(qkvStep===1) buildQKVTable();
+  if(qkvStep===2) buildScores();
+  if(qkvStep===3) buildSoftmax();
+  if(qkvStep===4) buildOutput();
+}
+
+function buildQKVTable(){
+  const tb=document.getElementById('qkv-table');
+  tb.innerHTML='';
+  qkvData.words.forEach((w,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="padding:5px 8px;color:#d0d8f0">${w} (x${i+1})</td>
+      <td style="padding:5px 8px"><span class="seq-box box-q" style="display:inline-block">[${qkvData.Q[i].join(', ')}]</span></td>
+      <td style="padding:5px 8px"><span class="seq-box box-k" style="display:inline-block">[${qkvData.K[i].join(', ')}]</span></td>
+      <td style="padding:5px 8px"><span class="seq-box box-v" style="display:inline-block">[${qkvData.V[i].join(', ')}]</span></td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function dot(a,b){return a.reduce((s,v,i)=>s+v*b[i],0);}
+
+function buildScores(){
+  const dk=Math.sqrt(2);
+  const scores=qkvData.K.map(k=>dot(qkvData.Q[0],k)/dk);
+  const d=document.getElementById('score-display');
+  d.innerHTML='';
+  qkvData.words.forEach((w,i)=>{
+    d.innerHTML+=`<div class="score-row">
+      <span style="color:#a0b8f0;min-width:40px">Q₁·K${i+1}</span>
+      <span style="color:#c0a0f0;min-width:90px">= ${scores[i].toFixed(3)}</span>
+      <span style="color:#8090b0;font-size:.7rem">score(今→${w})</span>
+    </div>`;
+  });
+}
+
+function softmax(arr){
+  const max=Math.max(...arr);
+  const exp=arr.map(x=>Math.exp(x-max));
+  const sum=exp.reduce((a,b)=>a+b,0);
+  return exp.map(x=>x/sum);
+}
+
+function buildSoftmax(){
+  const dk=Math.sqrt(2);
+  const scores=qkvData.K.map(k=>dot(qkvData.Q[0],k)/dk);
+  const weights=softmax(scores);
+  const d=document.getElementById('softmax-display');
+  d.innerHTML='';
+  qkvData.words.forEach((w,i)=>{
+    const pct=Math.round(weights[i]*100);
+    d.innerHTML+=`<div class="score-row">
+      <span style="color:#7ee8a2;min-width:40px">α${i+1}=</span>
+      <span style="min-width:55px;color:#f6d860">${weights[i].toFixed(3)}</span>
+      <div style="flex:1;background:rgba(255,255,255,0.07);border-radius:4px;height:14px">
+        <div class="score-bar" style="width:${pct}%;height:100%"></div>
+      </div>
+      <span style="font-size:.7rem;color:#8090b0;min-width:30px">${pct}%</span>
+    </div>`;
+  });
+}
+
+function buildOutput(){
+  const dk=Math.sqrt(2);
+  const scores=qkvData.K.map(k=>dot(qkvData.Q[0],k)/dk);
+  const weights=softmax(scores);
+  const out=qkvData.V[0].map((_,dim)=>
+    qkvData.V.reduce((s,v,i)=>s+weights[i]*v[dim],0)
+  );
+  const d=document.getElementById('output-display');
+  d.innerHTML=`
+    <div class="seq-row">
+      ${qkvData.words.map((w,i)=>`
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <span style="font-size:.65rem;color:#7ee8a2">α${i+1}=${weights[i].toFixed(2)}</span>
+          <div class="seq-box box-v" style="font-size:.7rem">V${i+1}</div>
+          <span style="font-size:.65rem;color:#8090b0">[${qkvData.V[i].join(',')}]</span>
+        </div>
+        ${i<2?'<span style="font-size:.9rem;color:#8090b0">+</span>':''}
+      `).join('')}
+      <span style="font-size:.9rem;color:#8090b0">=</span>
+      <div class="seq-box box-out">Z₁<br><span style="font-size:.65rem">[${out.map(x=>x.toFixed(2)).join(',')}]</span></div>
+    </div>
+    <div style="font-size:.75rem;color:#8090b0;margin-top:8px">输出向量综合了所有词的信息，权重反映"今"对其他词的注意力</div>
+  `;
+}
+
+// ═══════════════════════ STEP 2 ═══════════════════════
+const headPatterns=[
+  // head 1: syntax
+  [[0.9,0.1,0.05,0.05],[0.2,0.8,0.1,0.1],[0.1,0.1,0.85,0.15],[0.15,0.6,0.1,0.8]],
+  // head 2: semantics
+  [[0.5,0.5,0.1,0.1],[0.4,0.6,0.2,0.15],[0.1,0.2,0.7,0.3],[0.1,0.3,0.2,0.9]],
+  // head 3: coreference
+  [[0.6,0.1,0.1,0.3],[0.1,0.5,0.1,0.6],[0.2,0.1,0.5,0.4],[0.1,0.7,0.1,0.8]],
+  // head 4: position
+  [[0.8,0.2,0.05,0.05],[0.2,0.7,0.2,0.1],[0.1,0.2,0.7,0.2],[0.1,0.15,0.25,0.8]],
+];
+const headNames=['头 1：句法依存关系','头 2：语义相似度','头 3：长距离指代','头 4：位置邻近关系'];
+const headColors=['rgba(102,126,234,','rgba(118,75,162,','rgba(126,232,162,','rgba(246,216,96,'];
+
+function initStep2(){
+  showHead(0);
+}
+
+function showHead(idx){
+  const btns=document.getElementById('head-btns').querySelectorAll('.btn');
+  btns.forEach((b,i)=>{
+    b.className='btn btn-sm '+(i===idx||( i===4 && idx===-1)?'btn-primary':'btn-secondary');
+  });
+  document.getElementById('single-head-view').style.display='block';
+  document.getElementById('all-heads-view').style.display='none';
+  document.getElementById('head-title').textContent=headNames[idx];
+
+  const grid=document.getElementById('heatmap-1');
+  grid.innerHTML='';
+  const rows=4,cols=4;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cell=document.createElement('div');
+      cell.className='heatmap-cell';
+      cell.style.width='50px';cell.style.height='42px';
+      const w=headPatterns[idx][r][c];
+      const col=headColors[idx];
+      cell.style.background=`${col}${(0.15+w*0.85).toFixed(2)})`;
+      cell.textContent=w.toFixed(2);
+      grid.appendChild(cell);
+    }
+  }
+
+  const descs=[
+    '关注主谓宾结构：animal → it（指代）、cross → street（动宾）',
+    '关注语义相似词：animal ↔ it（同指），street ↔ cross（动作场所）',
+    '发现长距离指代：句子末尾 tired 指向 animal，跨越多个词',
+    '关注相邻位置：每个词主要看自身及左右邻居',
+  ];
+  document.getElementById('head-desc').textContent='💬 '+descs[idx];
+}
+
+function showAllHeads(){
+  const btns=document.getElementById('head-btns').querySelectorAll('.btn');
+  btns.forEach((b,i)=>{
+    b.className='btn btn-sm '+(i===4?'btn-primary':'btn-secondary');
+  });
+  document.getElementById('single-head-view').style.display='none';
+  document.getElementById('all-heads-view').style.display='block';
+  document.getElementById('head-desc').textContent='💬 4个头并行运算，各自学习不同的注意力模式';
+
+  const container=document.getElementById('head-grid-all');
+  container.innerHTML='';
+  headPatterns.forEach((pat,hi)=>{
+    const card=document.createElement('div');
+    card.className='head-card';
+    card.style.background=`${headColors[hi]}0.08)`;
+    card.style.border=`1px solid ${headColors[hi]}0.3)`;
+    const h4=document.createElement('h4');
+    h4.textContent=headNames[hi];
+    h4.style.color=`${headColors[hi]}0.9)`;
+    card.appendChild(h4);
+    const g=document.createElement('div');
+    g.className='heatmap-grid';
+    g.style.gridTemplateColumns='repeat(4,1fr)';
+    g.style.gap='2px';
+    pat.forEach(row=>row.forEach(w=>{
+      const c=document.createElement('div');
+      c.className='heatmap-cell';
+      c.style.width='30px';c.style.height='26px';c.style.fontSize='.55rem';
+      c.style.background=`${headColors[hi]}${(0.15+w*0.85).toFixed(2)})`;
+      c.textContent=w.toFixed(1);
+      g.appendChild(c);
+    }));
+    card.appendChild(g);
+    container.appendChild(card);
+  });
+}
+
+// ═══════════════════════ STEP 3 ═══════════════════════
+const archEncBlocks=[
+  {id:'ae-output',label:'Linear + Softmax Output',color:'rgba(246,216,96,0.2)',border:'rgba(246,216,96,0.5)',
+   info:{title:'输出层',desc:'将最后一层编码器的输出映射到词汇表大小，进行分类或序列标注。'}},
+  {id:'ae-addnorm2',label:'Add & Norm',color:'rgba(126,232,162,0.15)',border:'rgba(126,232,162,0.4)',
+   info:{title:'残差连接 + LayerNorm',desc:'将 FFN 输出与输入残差相加，再归一化。防止梯度消失，稳定深层网络训练。'}},
+  {id:'ae-ffn',label:'Feed Forward Network (FFN)',color:'rgba(118,75,162,0.2)',border:'rgba(118,75,162,0.5)',
+   info:{title:'前馈网络 FFN',desc:'两层线性变换 + ReLU：FFN(x) = max(0, xW₁+b₁)W₂+b₂。d_ff=2048，作用：非线性特征变换，信息整合。'}},
+  {id:'ae-addnorm1',label:'Add & Norm',color:'rgba(126,232,162,0.15)',border:'rgba(126,232,162,0.4)',
+   info:{title:'残差连接 + LayerNorm',desc:'将 MHA 输出与输入残差相加，再 LayerNorm。LayerNorm 归一化每个样本内部，不依赖 batch size。'}},
+  {id:'ae-mha',label:'Multi-Head Self-Attention',color:'rgba(102,126,234,0.2)',border:'rgba(102,126,234,0.5)',
+   info:{title:'多头自注意力',desc:'序列中每个位置都可以直接关注其他所有位置，捕捉全局依赖关系。h=8头，d_k=64。'}},
+  {id:'ae-pe',label:'Positional Encoding',color:'rgba(255,140,0,0.15)',border:'rgba(255,140,0,0.4)',
+   info:{title:'位置编码',desc:'PE(pos,2i)=sin(pos/10000^(2i/d))，PE(pos,2i+1)=cos(...)。为序列注入位置信息，Transformer 本身无序列感知。'}},
+  {id:'ae-emb',label:'Input Embedding',color:'rgba(255,100,100,0.15)',border:'rgba(255,100,100,0.4)',
+   info:{title:'词嵌入层',desc:'将 token 映射为 d_model=512 维的稠密向量，通过 ×√d_model 缩放与位置编码量级匹配。'}},
+];
+
+const archDecBlocks=[
+  {id:'ad-output',label:'Linear + Softmax Output',color:'rgba(246,216,96,0.2)',border:'rgba(246,216,96,0.5)',
+   info:{title:'输出层',desc:'解码器最终将 d_model 维表示映射到词汇表，Softmax 得到下一词概率分布。'}},
+  {id:'ad-addnorm3',label:'Add & Norm',color:'rgba(126,232,162,0.15)',border:'rgba(126,232,162,0.4)',
+   info:{title:'第三层残差归一化',desc:'FFN 之后的残差 + LayerNorm'}},
+  {id:'ad-ffn',label:'Feed Forward Network',color:'rgba(118,75,162,0.2)',border:'rgba(118,75,162,0.5)',
+   info:{title:'前馈网络',desc:'与 Encoder 相同结构的 FFN，在解码器每层中均有一个。'}},
+  {id:'ad-addnorm2',label:'Add & Norm',color:'rgba(126,232,162,0.15)',border:'rgba(126,232,162,0.4)',
+   info:{title:'第二层残差归一化',desc:'Cross-Attention 之后的残差 + LayerNorm'}},
+  {id:'ad-cross',label:'Cross-Attention (Encoder→Decoder)',color:'rgba(255,140,0,0.2)',border:'rgba(255,140,0,0.5)',
+   info:{title:'交叉注意力 Cross-Attention',desc:'Q 来自 Decoder，K/V 来自 Encoder 输出。让解码器在每步生成时"查询"编码器的全局语义信息。'}},
+  {id:'ad-addnorm1',label:'Add & Norm',color:'rgba(126,232,162,0.15)',border:'rgba(126,232,162,0.4)',
+   info:{title:'第一层残差归一化',desc:'Masked MHA 之后的残差 + LayerNorm'}},
+  {id:'ad-mmha',label:'Masked Multi-Head Self-Attention',color:'rgba(102,126,234,0.2)',border:'rgba(102,126,234,0.5)',
+   info:{title:'掩码多头自注意力',desc:'在解码器中，使用因果掩码（上三角 -∞）防止当前位置看到未来词，保证自回归生成的合法性。'}},
+  {id:'ad-pe',label:'Positional Encoding + Embedding',color:'rgba(255,100,100,0.15)',border:'rgba(255,100,100,0.4)',
+   info:{title:'目标端嵌入+位置编码',desc:'将已生成的目标序列 token 嵌入并加上位置编码，作为 Decoder 输入。训练时使用 teacher forcing。'}},
+];
+
+let currentArchBlock=null;
+
+function initStep3(){
+  buildArchStack('enc',archEncBlocks,'arch-stack-enc');
+  buildArchStack('dec',archDecBlocks,'arch-stack-dec');
+  currentArchBlock=null;
+}
+
+function buildArchStack(prefix,blocks,containerId){
+  const c=document.getElementById(containerId);
+  c.innerHTML='';
+  blocks.forEach((b,i)=>{
+    const d=document.createElement('div');
+    d.className='arch-block';
+    d.style.background=b.color;
+    d.style.borderColor=b.border.replace('0.5','0.3');
+    d.textContent=b.label;
+    d.onclick=()=>selectArchBlock(b,d);
+    c.appendChild(d);
+  });
+}
+
+function selectArchBlock(block,el){
+  // un-highlight all
+  document.querySelectorAll('.arch-block').forEach(b=>b.classList.remove('hl-arch'));
+  el.classList.add('hl-arch');
+  currentArchBlock=block;
+  const card=document.getElementById('arch-info-card');
+  card.querySelector('h3').textContent='🔍 '+block.info.title;
+  card.querySelector('p').textContent=block.info.desc;
+  document.getElementById('arch-extra-info').textContent='💡 点击其他模块继续探索架构';
+}
+
+function switchArch(mode,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('arch-encoder').style.display=mode==='encoder'?'block':'none';
+  document.getElementById('arch-decoder').style.display=mode==='decoder'?'block':'none';
+}
+
+let peShown=false;
+function togglePE(){
+  peShown=!peShown;
+  const panel=document.getElementById('pe-panel');
+  panel.style.display=peShown?'block':'none';
+  if(peShown) drawPE();
+}
+
+function drawPE(){
+  const canvas=document.getElementById('pe-canvas');
+  const W=480,H=160;
+  const ctx=hdpiCanvas(canvas,W,H);
+  const dModel=64,maxPos=48;
+  ctx.fillStyle='#0a0d1a';
+  ctx.fillRect(0,0,W,H);
+  const cellW=W/maxPos,cellH=H/dModel;
+  for(let pos=0;pos<maxPos;pos++){
+    for(let i=0;i<dModel;i++){
+      let val;
+      if(i%2===0) val=Math.sin(pos/Math.pow(10000,i/dModel));
+      else val=Math.cos(pos/Math.pow(10000,(i-1)/dModel));
+      const t=(val+1)/2;
+      const r=Math.round(lerp(20,102,t));
+      const g=Math.round(lerp(30,126,t));
+      const b2=Math.round(lerp(80,234,t));
+      ctx.fillStyle=`rgb(${r},${g},${b2})`;
+      ctx.fillRect(pos*cellW,i*cellH,cellW-0.5,cellH-0.5);
+    }
+  }
+  ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.font='10px sans-serif';
+  ctx.fillText('← 位置 pos (0~47)',4,H-4);
+  ctx.save();ctx.translate(8,H/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText('维度 i (0~63)',0,0);ctx.restore();
+}
+
+// ═══════════════════════ STEP 4 ═══════════════════════
+const genSequence=['Today','is','a','beautiful','day'];
+const candidateWords=[
+  [['is',0.72],['was',0.12],['will',0.07],['has',0.05],['can',0.04]],
+  [['a',0.65],['the',0.15],['an',0.08],['very',0.05],['not',0.07]],
+  [['beautiful',0.48],['great',0.22],['wonderful',0.12],['good',0.1],['sunny',0.08]],
+  [['day',0.55],['morning',0.2],['time',0.1],['moment',0.08],['place',0.07]],
+];
+let genPos=0;
+let genTimer=null;
+
+function initStep4(){
+  genReset();
+}
+
+function genReset(){
+  genPos=0;
+  if(genTimer){clearInterval(genTimer);genTimer=null;}
+  document.getElementById('auto-btn').textContent='⚡ 自动生成';
+  renderGenState();
+}
+
+function genNextWord(){
+  if(genPos>=genSequence.length-1) return;
+  genPos++;
+  renderGenState();
+}
+
+function autoGen(){
+  if(genTimer){
+    cancelAnimationFrame(genTimer);genTimer=null;
+    document.getElementById('auto-btn').textContent='⚡ 自动生成';
+    return;
+  }
+  document.getElementById('auto-btn').textContent='⏹ 停止';
+  let lastTime=null;
+  const interval=1100;
+  function rafLoop(ts){
+    if(!lastTime) lastTime=ts;
+    if(ts-lastTime>=interval){
+      lastTime=ts;
+      if(genPos>=genSequence.length-1){
+        genTimer=null;
+        document.getElementById('auto-btn').textContent='⚡ 自动生成';
+        return;
+      }
+      genPos++;
+      renderGenState();
+    }
+    genTimer=requestAnimationFrame(rafLoop);
+  }
+  genTimer=requestAnimationFrame(rafLoop);
+}
+
+function renderGenState(){
+  // Generated text
+  const textEl=document.getElementById('gen-text-display');
+  textEl.innerHTML='';
+  for(let i=0;i<=genPos;i++){
+    const span=document.createElement('span');
+    span.className='gen-word'+(i===genPos?' new-word':'');
+    span.textContent=genSequence[i]+' ';
+    textEl.appendChild(span);
+  }
+
+  // Mask matrix (5x5)
+  const matrix=document.getElementById('mask-matrix');
+  matrix.innerHTML='';
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      const cell=document.createElement('div');
+      cell.className='mask-cell';
+      cell.style.width='37px';cell.style.height='34px';
+      const revealed=r<=genPos && c<=genPos;
+      const allowed=c<=r;
+      if(!revealed){
+        cell.style.background='rgba(20,20,35,0.9)';
+        cell.style.color='#333';
+        cell.textContent='▓';
+      } else if(allowed){
+        const isNewRow=(r===genPos);
+        cell.className='mask-cell '+(isNewRow?'mask-new':'mask-allow');
+        cell.textContent=isNewRow&&c===r?'◆':'✓';
+      } else {
+        cell.className='mask-cell mask-block';
+        cell.textContent='✗';
+      }
+      matrix.appendChild(cell);
+    }
+  }
+
+  // Probability bars
+  const probEl=document.getElementById('prob-display');
+  probEl.innerHTML='';
+  if(genPos<genSequence.length-1){
+    const candidates=candidateWords[genPos];
+    const title=document.createElement('div');
+    title.style.fontSize='.75rem';title.style.color='#8090b0';title.style.marginBottom='6px';
+    title.textContent=`预测 "${genSequence[genPos+1]}" 的候选词（下一个词）：`;
+    probEl.appendChild(title);
+    candidates.forEach(([word,prob])=>{
+      const row=document.createElement('div');
+      row.className='prob-row';
+      row.innerHTML=`
+        <div class="prob-label">${word}</div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar" style="width:${Math.round(prob*100)}%"></div>
+        </div>
+        <span style="font-size:.72rem;color:#f6d860;min-width:36px;text-align:right">${(prob*100).toFixed(0)}%</span>
+      `;
+      probEl.appendChild(row);
+    });
+  } else {
+    probEl.innerHTML='<div style="color:#7ee8a2;font-size:.85rem">✅ 生成完成！"Today is a beautiful day"</div>';
+  }
+}
+
+// ═══════════════════════ STEP 5 ═══════════════════════
+function initStep5(){
+  drawComplexity();
+  buildParallelBars();
+  buildEqCards();
+}
+
+function drawComplexity(){
+  const canvas=document.getElementById('complexity-canvas');
+  const W=520,H=220;
+  const ctx=hdpiCanvas(canvas,W,H);
+  const padL=50,padR=20,padT=20,padB=40;
+  const plotW=W-padL-padR,plotH=H-padT-padB;
+
+  ctx.fillStyle='#0a0d1a';ctx.fillRect(0,0,W,H);
+
+  // axes
+  ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(padL,padT);ctx.lineTo(padL,padT+plotH);
+  ctx.lineTo(padL+plotW,padT+plotH);
+  ctx.stroke();
+
+  const maxN=64;
+  function scaleX(n){return padL+n/maxN*plotW;}
+  function scaleY(y,maxY){return padT+plotH-y/maxY*plotH;}
+
+  // compute max for normalization
+  const maxTransformer=maxN*maxN; // n=64: 4096
+  const maxRNN=maxN; // just linear O(n)
+
+  // draw RNN line
+  ctx.strokeStyle='#7ee8a2';ctx.lineWidth=2.5;
+  ctx.beginPath();
+  for(let n=1;n<=maxN;n++){
+    const y=n/maxN; // normalized linear
+    const px=scaleX(n),py=scaleY(y,1);
+    n===1?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // draw Transformer line
+  ctx.strokeStyle='#667eea';ctx.lineWidth=2.5;
+  ctx.beginPath();
+  for(let n=1;n<=maxN;n++){
+    const y=(n*n)/(maxN*maxN); // normalized quadratic
+    const px=scaleX(n),py=scaleY(y,1);
+    n===1?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // crossover annotation ~n=1 (they cross at n=1 by definition... actually RNN crossover where O(n)=O(n²) is n=1)
+  // Let's mark n=8 as "小序列时 Transformer 仍优"
+  ctx.fillStyle='rgba(246,216,96,0.8)';ctx.strokeStyle='#f6d860';ctx.lineWidth=1;
+  const cx=scaleX(8),cy1=scaleY(8/maxN,1),cy2=scaleY(64/(maxN*maxN),1);
+  ctx.beginPath();ctx.arc(cx,(cy1+cy2)/2,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#f6d860';ctx.font='10px sans-serif';
+  ctx.fillText('n=8',cx+5,(cy1+cy2)/2-4);
+
+  // axis labels
+  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='10px sans-serif';
+  ctx.fillText('0',padL-8,padT+plotH+14);
+  ctx.fillText('64',padL+plotW-8,padT+plotH+14);
+  ctx.fillText('序列长度 n',padL+plotW/2-25,H-5);
+  ctx.save();ctx.translate(12,padT+plotH/2+25);ctx.rotate(-Math.PI/2);
+  ctx.fillText('计算量（归一化）',0,0);ctx.restore();
+
+  // labels
+  ctx.fillStyle='#667eea';ctx.font='bold 10px sans-serif';
+  ctx.fillText('Transformer O(n²)',padL+plotW*0.55,padT+30);
+  ctx.fillStyle='#7ee8a2';
+  ctx.fillText('RNN O(n)',padL+plotW*0.7,padT+plotH*0.55);
+}
+
+function buildParallelBars(){
+  const el=document.getElementById('parallel-bars');
+  el.innerHTML=`
+    <div class="prob-row">
+      <div class="prob-label" style="min-width:120px">Transformer 并行度</div>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar" style="width:95%;background:linear-gradient(90deg,#667eea,#764ba2)"></div>
+      </div>
+      <span style="font-size:.72rem;color:#f6d860;min-width:36px">95%</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-label" style="min-width:120px">RNN 并行度</div>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar" style="width:5%;background:linear-gradient(90deg,#7ee8a2,#3ab87a)"></div>
+      </div>
+      <span style="font-size:.72rem;color:#7ee8a2;min-width:36px">5%</span>
+    </div>
+    <div style="font-size:.72rem;color:#8090b0;margin-top:6px">RNN 必须串行处理（t 时刻依赖 t-1），GPU 利用率极低</div>
+  `;
+}
+
+const equations=[
+  {title:'Self-Attention 公式',content:`
+    <div class="formula-box">
+      <span class="hl">A</span>(Q,K,V) = <span class="hl2">Softmax</span>( <span class="hl">Q</span><span class="hl3">Kᵀ</span> / <span class="hl2">√d_k</span> ) · <span class="hl3">V</span><br><br>
+      维度：Q∈ℝ<sup>n×d_k</sup>, K∈ℝ<sup>n×d_k</sup>, V∈ℝ<sup>n×d_v</sup><br>
+      输出 ∈ ℝ<sup>n×d_v</sup>，复杂度 O(n²·d_k)
+    </div>
+  `},
+  {title:'Multi-Head Attention 公式',content:`
+    <div class="formula-box">
+      <span class="hl">MultiHead</span>(Q,K,V) = Concat(head<sub>1</sub>,...,head<sub>h</sub>)<span class="hl3">W<sup>O</sup></span><br><br>
+      head<sub>i</sub> = Attention(<span class="hl2">QW<sub>i</sub><sup>Q</sup></span>, <span class="hl3">KW<sub>i</sub><sup>K</sup></span>, <span class="hl2">VW<sub>i</sub><sup>V</sup></span>)<br><br>
+      <span style="color:#8090b0">W<sub>i</sub><sup>Q</sup>∈ℝ<sup>d×d_k</sup>, h=8, d_k=d_v=64</span>
+    </div>
+  `},
+  {title:'Feed-Forward Network (FFN)',content:`
+    <div class="formula-box">
+      <span class="hl">FFN</span>(x) = <span class="hl2">max</span>(0, x<span class="hl3">W₁</span>+b₁)<span class="hl3">W₂</span>+b₂<br><br>
+      d_model=512, d_ff=2048（4倍扩展）<br>
+      复杂度 O(n · d · d_ff)，参数量：2×512×2048
+    </div>
+  `},
+  {title:'Positional Encoding (PE)',content:`
+    <div class="formula-box">
+      PE(pos,2i) &nbsp;&nbsp;= <span class="hl2">sin</span>(pos / 10000<sup>2i/d</sup>)<br>
+      PE(pos,2i+1) = <span class="hl3">cos</span>(pos / 10000<sup>2i/d</sup>)<br><br>
+      <span style="color:#8090b0">pos：位置，i：维度索引</span><br>
+      <span class="hl">输入</span> = Embedding + PE（直接相加）
+    </div>
+  `},
+];
+
+function buildEqCards(){
+  const el=document.getElementById('eq-cards');
+  el.innerHTML='';
+  equations.forEach((eq,i)=>{
+    const card=document.createElement('div');
+    card.className='expand-card';
+    card.innerHTML=`
+      <div class="expand-header" onclick="toggleEq(${i},this)">
+        <span>${eq.title}</span>
+        <span class="arrow" id="arrow-${i}">▶</span>
+      </div>
+      <div class="expand-body" id="eq-body-${i}">${eq.content}</div>
+    `;
+    el.appendChild(card);
+  });
+}
+
+function toggleEq(i,header){
+  const body=document.getElementById('eq-body-'+i);
+  const arrow=document.getElementById('arrow-'+i);
+  const open=body.classList.toggle('open');
+  arrow.classList.toggle('open',open);
+}
+
+// ═══════════════════════ INIT ═══════════════════════
+initStep(0);
+</script>
+</body>
+</html>

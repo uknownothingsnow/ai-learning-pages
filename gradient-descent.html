@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>梯度下降法深度解析 — StatQuest 风格</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+  color: #2d3748;
+}
+
+/* ── Container ── */
+.container {
+  background: #fff;
+  border-radius: 20px;
+  max-width: 1300px;
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+}
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  padding: 32px 40px 28px;
+  color: #fff;
+}
+.header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
+.header p  { margin-top: 6px; color: #a0aec0; font-size: 0.95rem; }
+
+/* ── Progress Bar ── */
+.progress-wrap {
+  background: #e2e8f0;
+  height: 5px;
+}
+.progress-bar {
+  height: 5px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width .4s ease;
+}
+
+/* ── Nav ── */
+.nav {
+  display: flex;
+  gap: 8px;
+  padding: 18px 32px;
+  flex-wrap: wrap;
+  background: #f7f8fc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.nav-btn {
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #4a5568;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.nav-btn:hover { background: #cbd5e0; }
+.nav-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(102,126,234,0.4);
+}
+
+/* ── Step Panels ── */
+.step-panel { display: none; padding: 32px 32px 36px; }
+.step-panel.active { display: flex; gap: 28px; flex-wrap: wrap; }
+
+/* ── Panels ── */
+.viz-panel {
+  flex: 1 1 440px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.info-panel {
+  flex: 0 0 340px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Canvas wrapper ── */
+.canvas-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f0f4ff;
+  border: 1.5px solid #e2e8f0;
+  position: relative;
+}
+.canvas-wrap canvas { display: block; width: 100%; height: auto; }
+
+/* ── Controls ── */
+.ctrl-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all .18s;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(102,126,234,0.3);
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(102,126,234,0.4); }
+.btn:active { transform: translateY(0); }
+.btn.secondary {
+  background: #e2e8f0;
+  color: #4a5568;
+  box-shadow: none;
+}
+.btn.secondary:hover { background: #cbd5e0; }
+.btn.danger {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  box-shadow: 0 3px 10px rgba(245,87,108,0.3);
+}
+
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #4a5568;
+}
+input[type=range] {
+  -webkit-appearance: none;
+  height: 5px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  width: 120px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: #764ba2;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* ── Stat chips ── */
+.stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-chip {
+  background: #f7f8fc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  color: #4a5568;
+}
+.stat-chip span { font-weight: 700; color: #667eea; }
+
+/* ── Info card ── */
+.info-card {
+  background: #f7f8fc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 18px;
+}
+.info-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 6px;
+}
+.info-card p, .info-card li {
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: #4a5568;
+}
+.info-card ul { padding-left: 18px; }
+.info-card li { margin-bottom: 4px; }
+
+/* ── Formula box ── */
+.formula-box {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  line-height: 1.9;
+}
+.formula-box .hl { color: #f6d860; font-weight: 700; }
+.formula-box .cm { color: #68d391; }
+
+/* ── Point buttons ── */
+.point-btn-row { display: flex; gap: 8px; }
+.point-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 2px solid #667eea;
+  background: #fff;
+  color: #667eea;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all .18s;
+}
+.point-btn:hover, .point-btn.active-pt {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ── Derivative display ── */
+.deriv-display {
+  background: #fff3cd;
+  border: 1.5px solid #f6c23e;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: #856404;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.deriv-display .arrow { font-size: 1.4rem; }
+
+/* ── Tabs ── */
+.tab-row { display: flex; gap: 6px; }
+.tab-btn {
+  padding: 6px 16px;
+  border-radius: 8px 8px 0 0;
+  border: 1.5px solid #e2e8f0;
+  border-bottom: none;
+  background: #f0f4ff;
+  color: #4a5568;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+}
+.tab-btn.active {
+  background: #fff;
+  color: #667eea;
+  border-color: #667eea;
+}
+
+/* ── Table ── */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+.compare-table th {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  padding: 8px 10px;
+  text-align: left;
+}
+.compare-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #4a5568;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:nth-child(even) td { background: #f7f8fc; }
+
+/* ── Bar chart ── */
+.bar-chart-wrap {
+  background: #f7f8fc;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+.bar-chart-wrap h4 { font-size: 0.82rem; color: #4a5568; margin-bottom: 8px; }
+.bar-item { margin-bottom: 8px; }
+.bar-label { font-size: 0.78rem; color: #4a5568; margin-bottom: 3px; }
+.bar-track { background: #e2e8f0; border-radius: 4px; height: 18px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.72rem; font-weight: 700; color: #fff; transition: width .6s ease; }
+
+/* ── Step 3 multi canvas ── */
+.triple-canvas-row {
+  display: flex;
+  gap: 8px;
+}
+.triple-canvas-row .canvas-wrap { flex: 1; min-width: 0; }
+
+/* ── Step hint ── */
+.step-hint {
+  font-size: 0.8rem;
+  color: #718096;
+  font-style: italic;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .step-panel.active { flex-direction: column; }
+  .info-panel { flex: 1 1 auto; }
+  .triple-canvas-row { flex-direction: column; }
+  .nav { padding: 14px 16px; }
+  .step-panel { padding: 20px 16px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🏔️ 梯度下降法深度解析</h1>
+    <p>StatQuest 风格 · 6 步互动教程 · 从直觉到实践，彻底理解梯度下降</p>
+  </div>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:16.6%"></div></div>
+
+  <!-- Nav -->
+  <div class="nav">
+    <button class="nav-btn active" onclick="goStep(0)">Step 0 · 损失地形</button>
+    <button class="nav-btn" onclick="goStep(1)">Step 1 · 梯度直觉</button>
+    <button class="nav-btn" onclick="goStep(2)">Step 2 · 一步步走</button>
+    <button class="nav-btn" onclick="goStep(3)">Step 3 · 学习率影响</button>
+    <button class="nav-btn" onclick="goStep(4)">Step 4 · 2D 参数空间</button>
+    <button class="nav-btn" onclick="goStep(5)">Step 5 · SGD 对比</button>
+  </div>
+
+  <!-- ══════════ STEP 0 ══════════ -->
+  <div class="step-panel active" id="step0">
+    <div class="viz-panel">
+      <div class="canvas-wrap">
+        <canvas id="c0" width="840" height="600"></canvas>
+      </div>
+      <p class="step-hint">💡 点击曲线任意位置移动红色圆点；悬停查看橙色切线</p>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>📉 什么是损失函数？</h3>
+        <p>损失函数（Loss Function）衡量模型预测值与真实值之间的<strong>差距</strong>。损失越小，模型越好。</p>
+        <br>
+        <p>训练的目标就是：找到使损失最小的参数 <strong>w</strong>。</p>
+        <br>
+        <ul>
+          <li>碗的底部 = 最优参数</li>
+          <li>碗的壁面 = 参数偏离的代价</li>
+          <li>我们要从碗壁"滚"到碗底</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🔢 均方误差（MSE）</h3>
+        <div class="formula-box">
+          <span class="cm">// 本教程使用的简化损失：</span><br>
+          <span class="hl">L(w) = (w − 1)² + 0.3</span><br><br>
+          <span class="cm">// 真实场景中的 MSE：</span><br>
+          L(w) = <span class="hl">1/n · Σ(ŷᵢ − yᵢ)²</span><br><br>
+          <span class="cm">// 最小值在 w* = 1</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>📌 读图说明</h3>
+        <ul>
+          <li>🟢 绿色虚线 → 最优值 w=1</li>
+          <li>🔴 红色圆点 → 当前参数位置</li>
+          <li>🟠 橙色切线 → 悬停时显示斜率</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 1 ══════════ -->
+  <div class="step-panel" id="step1">
+    <div class="viz-panel">
+      <div class="canvas-wrap">
+        <canvas id="c1" width="840" height="600"></canvas>
+      </div>
+      <div class="point-btn-row">
+        <button class="point-btn" id="pb_n2" onclick="s1_setW(-2)">w = −2</button>
+        <button class="point-btn" id="pb_1"  onclick="s1_setW(1)">w = 1（最优）</button>
+        <button class="point-btn" id="pb_25" onclick="s1_setW(2.5)">w = 2.5</button>
+      </div>
+      <div class="deriv-display" id="derivDisplay">
+        ← 点击上方按钮，查看该点的梯度与方向指示
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>📐 导数的直觉</h3>
+        <p>导数 = 曲线在某点的<strong>切线斜率</strong>，告诉我们：</p>
+        <br>
+        <ul>
+          <li>斜率 > 0 → loss 随 w 增大而增大<br>→ 应该<strong>减小</strong> w</li>
+          <li>斜率 < 0 → loss 随 w 增大而减小<br>→ 应该<strong>增大</strong> w</li>
+          <li>斜率 = 0 → 到达<strong>极值点</strong>（最优！）</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🔢 导数公式</h3>
+        <div class="formula-box">
+          L(w) = (w−1)² + 0.3<br><br>
+          <span class="hl">dL/dw = 2(w − 1)</span><br><br>
+          <span class="cm">// w = −2：dL/dw = 2(−2−1) = −6</span><br>
+          <span class="cm">// w =  1：dL/dw = 2( 1−1) =  0</span><br>
+          <span class="cm">// w = 2.5：dL/dw = 2(2.5−1) = 3</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🗺️ 梯度 = 多维导数</h3>
+        <p>当参数从 1 个增加到多个（w₁, w₂, …），导数就变成<strong>梯度向量</strong>：</p>
+        <br>
+        <div class="formula-box">
+          ∇L = [<span class="hl">∂L/∂w₁</span>, <span class="hl">∂L/∂w₂</span>, …]<br><br>
+          <span class="cm">// 梯度指向损失上升最快的方向</span><br>
+          <span class="cm">// 我们沿负梯度方向走 → 下降！</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 2 ══════════ -->
+  <div class="step-panel" id="step2">
+    <div class="viz-panel">
+      <div class="canvas-wrap">
+        <canvas id="c2" width="840" height="600"></canvas>
+      </div>
+      <div class="ctrl-row">
+        <div class="slider-wrap">
+          <span>学习率 α</span>
+          <input type="range" id="lr2" min="0.05" max="1.5" step="0.05" value="0.3" oninput="s2_lrChange()">
+          <span id="lr2val" style="min-width:32px;font-weight:700;color:#667eea">0.30</span>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" onclick="s2_step()">▶ 单步执行</button>
+        <button class="btn" onclick="s2_auto()">⚡ 自动演示</button>
+        <button class="btn secondary" onclick="s2_reset()">↺ 重置</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat-chip">步骤 <span id="s2_step">0</span></div>
+        <div class="stat-chip">w = <span id="s2_w">−2.00</span></div>
+        <div class="stat-chip">Loss = <span id="s2_loss">9.30</span></div>
+        <div class="stat-chip">dL/dw = <span id="s2_grad">−6.00</span></div>
+      </div>
+      <div class="deriv-display" id="s2_formula" style="background:#e8f4f8;border-color:#4299e1;color:#2c5282;">
+        点击「单步执行」开始梯度下降
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🚶 梯度下降更新规则</h3>
+        <div class="formula-box">
+          <span class="hl">w ← w − α · dL/dw</span><br><br>
+          <span class="cm">// α = 学习率（步长）</span><br>
+          <span class="cm">// dL/dw = 梯度（方向）</span><br>
+          <span class="cm">// 沿梯度反方向移动</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🎯 算法流程</h3>
+        <ol style="padding-left:18px;font-size:0.875rem;line-height:1.9;color:#4a5568;">
+          <li>随机初始化参数 w</li>
+          <li>计算损失 L(w)</li>
+          <li>计算梯度 dL/dw</li>
+          <li>更新参数 w ← w − α·grad</li>
+          <li>重复 2-4 直到收敛</li>
+        </ol>
+      </div>
+      <div class="info-card">
+        <h3>💡 收敛判据</h3>
+        <ul>
+          <li>|dL/dw| &lt; ε（梯度接近 0）</li>
+          <li>Loss 变化量 &lt; ε</li>
+          <li>达到最大迭代次数</li>
+        </ul>
+        <br>
+        <p>蓝色小点 = 历史轨迹，观察下降路径！</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 3 ══════════ -->
+  <div class="step-panel" id="step3">
+    <div class="viz-panel">
+      <div class="triple-canvas-row">
+        <div class="canvas-wrap" style="flex:1">
+          <canvas id="c3a" width="420" height="320"></canvas>
+        </div>
+        <div class="canvas-wrap" style="flex:1">
+          <canvas id="c3b" width="420" height="320"></canvas>
+        </div>
+        <div class="canvas-wrap" style="flex:1">
+          <canvas id="c3c" width="420" height="320"></canvas>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="c3loss" width="840" height="200"></canvas>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" onclick="s3_play()">▶ 播放对比</button>
+        <button class="btn secondary" onclick="s3_reset()">↺ 重置</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat-chip" style="border-color:#e53e3e">🔴 α=0.05 Loss=<span id="s3la">9.30</span></div>
+        <div class="stat-chip" style="border-color:#38a169">🟢 α=0.30 Loss=<span id="s3lb">9.30</span></div>
+        <div class="stat-chip" style="border-color:#3182ce">🔵 α=1.20 Loss=<span id="s3lc">9.30</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>⚖️ 学习率的影响</h3>
+        <ul>
+          <li><strong style="color:#e53e3e">太小 (α=0.05)</strong>：每步很小，收敛极慢，需要大量迭代</li>
+          <br>
+          <li><strong style="color:#38a169">合适 (α=0.30)</strong>：稳定收敛，效率最高</li>
+          <br>
+          <li><strong style="color:#3182ce">太大 (α=1.20)</strong>：步子太大，在最小值两侧来回震荡，甚至发散</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>📅 学习率调度器</h3>
+        <p>实际训练中，学习率往往不是固定值：</p>
+        <br>
+        <div class="formula-box">
+          <span class="cm">// Step Decay</span><br>
+          α(t) = α₀ · γ^(t/step)<br><br>
+          <span class="cm">// Cosine Annealing</span><br>
+          α(t) = <span class="hl">α_min + ½(α_max−α_min)</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× (1 + cos(πt/T))<br><br>
+          <span class="cm">// Warm-up + Decay</span><br>
+          先从小学习率预热，再衰减
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🔍 Loss-Epoch 曲线图说明</h3>
+        <ul>
+          <li>🔴 红线：loss 几乎不变（学太慢）</li>
+          <li>🟢 绿线：平滑快速下降（理想）</li>
+          <li>🔵 蓝线：剧烈震荡（不稳定）</li>
+        </ul>
+        <br>
+        <p>实践技巧：先用大学习率快速下降，后期用小学习率精细调节。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 4 ══════════ -->
+  <div class="step-panel" id="step4">
+    <div class="viz-panel">
+      <div class="canvas-wrap">
+        <canvas id="c4" width="840" height="600"></canvas>
+      </div>
+      <div class="ctrl-row">
+        <div class="slider-wrap">
+          <span>学习率 α</span>
+          <input type="range" id="lr4" min="0.05" max="0.9" step="0.05" value="0.2" oninput="s4_lrChange()">
+          <span id="lr4val" style="min-width:32px;font-weight:700;color:#667eea">0.20</span>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" onclick="s4_step()">▶ 单步</button>
+        <button class="btn" onclick="s4_auto()">⚡ 自动</button>
+        <button class="btn secondary" onclick="s4_reset()">↺ 重置</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat-chip">步骤 <span id="s4_step">0</span></div>
+        <div class="stat-chip">w₁=<span id="s4_w1">−1.50</span></div>
+        <div class="stat-chip">w₂=<span id="s4_w2">1.50</span></div>
+        <div class="stat-chip">Loss=<span id="s4_loss">0.00</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🗺️ 2D 参数空间</h3>
+        <p>两个参数时，损失面变为三维曲面，我们用<strong>等高线热图</strong>表示：</p>
+        <br>
+        <div class="formula-box">
+          L(w₁,w₂) = <span class="hl">(w₁−0.5)² + 2(w₂+0.3)²</span><br><br>
+          <span class="cm">// 最优解：w₁*=0.5，w₂*=−0.3</span><br>
+          <span class="cm">// 绿色 × 标记最优点</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🔢 偏导数</h3>
+        <div class="formula-box">
+          <span class="hl">∂L/∂w₁ = 2(w₁ − 0.5)</span><br><br>
+          <span class="hl">∂L/∂w₂ = 4(w₂ + 0.3)</span><br><br>
+          <span class="cm">// 梯度向量（指向上升最快）</span><br>
+          ∇L = [∂L/∂w₁, ∂L/∂w₂]<br><br>
+          <span class="cm">// 更新规则</span><br>
+          w₁ ← w₁ − α·∂L/∂w₁<br>
+          w₂ ← w₂ − α·∂L/∂w₂
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>🎨 热图颜色说明</h3>
+        <ul>
+          <li>🔵 蓝色区域 = 低损失（接近最优）</li>
+          <li>🔴 红色区域 = 高损失（远离最优）</li>
+          <li>⚪ 白色圆点 = 当前参数位置</li>
+          <li>🔵 蓝色线条 = 下降轨迹</li>
+          <li>❌ 绿色叉叉 = 最优解位置</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 5 ══════════ -->
+  <div class="step-panel" id="step5">
+    <div class="viz-panel">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab5_sgd" onclick="s5_setMode('sgd')">SGD（单样本）</button>
+        <button class="tab-btn" id="tab5_mini" onclick="s5_setMode('mini')">Mini-batch</button>
+        <button class="tab-btn" id="tab5_batch" onclick="s5_setMode('batch')">Batch GD（全量）</button>
+      </div>
+      <div class="canvas-wrap" style="border-radius:0 12px 12px 12px">
+        <canvas id="c5" width="840" height="520"></canvas>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" onclick="s5_play()">▶ 播放轨迹（50步）</button>
+        <button class="btn secondary" onclick="s5_reset()">↺ 重置</button>
+      </div>
+      <div class="bar-chart-wrap">
+        <h4>每步计算量对比（相对值）</h4>
+        <div class="bar-item">
+          <div class="bar-label">SGD（1 样本）</div>
+          <div class="bar-track"><div class="bar-fill" style="width:8%;background:linear-gradient(90deg,#f093fb,#f5576c)">1×</div></div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Mini-batch（32 样本）</div>
+          <div class="bar-track"><div class="bar-fill" style="width:32%;background:linear-gradient(90deg,#667eea,#764ba2)">32×</div></div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Batch GD（全量 N 样本）</div>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#f6d365,#fda085)">N×</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🔄 三种变体</h3>
+        <table class="compare-table">
+          <tr><th>方法</th><th>噪声</th><th>速度</th><th>内存</th><th>稳定性</th></tr>
+          <tr><td>SGD</td><td>🔴 大</td><td>🟢 快</td><td>🟢 小</td><td>🔴 差</td></tr>
+          <tr><td>Mini-batch</td><td>🟡 中</td><td>🟢 快</td><td>🟡 中</td><td>🟢 好</td></tr>
+          <tr><td>Batch GD</td><td>🟢 小</td><td>🔴 慢</td><td>🔴 大</td><td>🟢 最佳</td></tr>
+        </table>
+      </div>
+      <div class="info-card">
+        <h3>💡 Mini-batch 是实践标配</h3>
+        <ul>
+          <li>平衡了噪声与计算效率</li>
+          <li>可利用 GPU 并行加速矩阵运算</li>
+          <li>带有一定噪声 → 有助于<strong>逃离局部最优</strong></li>
+          <li>实践常用 batch size：32 / 64 / 128</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🎛️ Batch Size 建议</h3>
+        <div class="formula-box">
+          <span class="cm">// 小 batch（8~32）</span><br>
+          更多噪声，正则化效果好<br>
+          适合小数据集<br><br>
+          <span class="cm">// 中 batch（64~256）</span><br>
+          GPU 利用率高，最常用<br><br>
+          <span class="cm">// 大 batch（>1024）</span><br>
+          需要调大 lr，<span class="hl">Linear Scaling Rule</span>:<br>
+          lr ∝ batch_size
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+const DPR = window.devicePixelRatio || 1;
+
+function setupCanvas(id, cssW, cssH) {
+  const cvs = document.getElementById(id);
+  cvs.width  = cssW * DPR;
+  cvs.height = cssH * DPR;
+  cvs.style.width  = cssW + 'px';
+  cvs.style.height = cssH + 'px';
+  const ctx = cvs.getContext('2d');
+  ctx.scale(DPR, DPR);
+  return { cvs, ctx, W: cssW, H: cssH };
+}
+
+// 1D loss curve map helpers
+function lossWToCanvas(w, W, H, wMin, wMax, lMax) {
+  const x = (w - wMin) / (wMax - wMin) * W;
+  return x;
+}
+function lossLToCanvas(l, H, lMax) {
+  return H - (l / lMax) * (H - 30) - 20;
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════
+let currentStep = 0;
+const TOTAL = 6;
+
+function goStep(n) {
+  document.querySelectorAll('.step-panel').forEach((p,i)=>{
+    p.classList.toggle('active', i===n);
+  });
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===n);
+  });
+  document.getElementById('progressBar').style.width = ((n+1)/TOTAL*100) + '%';
+  currentStep = n;
+  initStep(n);
+}
+
+function initStep(n) {
+  if(n===0) s0_init();
+  if(n===1) s1_init();
+  if(n===2) s2_init();
+  if(n===3) s3_init();
+  if(n===4) s4_init();
+  if(n===5) s5_init();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SHARED 1D LOSS DRAWING
+// ═══════════════════════════════════════════════════════
+function draw1DLoss(ctx, W, H, w_cur, showTangent, tangentW, opts={}) {
+  const wMin=-3, wMax=3, lMax=15;
+  const pad = {l:50, r:20, t:20, b:40};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.fillStyle = '#f8faff';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.roundRect(pad.l-10, pad.t-5, cw+20, ch+10, 8);
+  ctx.fill();
+
+  // Grid
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  for(let g=0; g<=5; g++) {
+    const lv = g * lMax/5;
+    const gy = pad.t + ch - (lv/lMax)*ch;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, gy);
+    ctx.lineTo(pad.l+cw, gy);
+    ctx.stroke();
+    ctx.fillStyle='#a0aec0';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText(lv.toFixed(0), pad.l-4, gy+4);
+  }
+  for(let xi=-3; xi<=3; xi++) {
+    const gx = pad.l + (xi-wMin)/(wMax-wMin)*cw;
+    ctx.beginPath();
+    ctx.moveTo(gx, pad.t);
+    ctx.lineTo(gx, pad.t+ch);
+    ctx.stroke();
+    ctx.fillStyle='#a0aec0';
+    ctx.textAlign='center';
+    ctx.fillText(xi, gx, pad.t+ch+15);
+  }
+
+  // Axes
+  ctx.strokeStyle = '#718096';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t+ch);
+  ctx.lineTo(pad.l+cw, pad.t+ch);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle='#4a5568';
+  ctx.font='bold 12px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('w（参数）', pad.l+cw/2, H-4);
+  ctx.save(); ctx.translate(14, pad.t+ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Loss L(w)', 0, 0);
+  ctx.restore();
+
+  // Min vertical line
+  const x_opt = pad.l + (1-wMin)/(wMax-wMin)*cw;
+  ctx.setLineDash([5,5]);
+  ctx.strokeStyle = '#38a169';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x_opt, pad.t);
+  ctx.lineTo(x_opt, pad.t+ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#38a169';
+  ctx.font='bold 11px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('w*=1', x_opt, pad.t-4);
+
+  // Loss curve
+  ctx.beginPath();
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 3;
+  let first = true;
+  for(let xi=0; xi<=cw; xi++) {
+    const w = wMin + (xi/cw)*(wMax-wMin);
+    const l = (w-1)*(w-1) + 0.3;
+    const y = pad.t + ch - (l/lMax)*ch;
+    if(first){ ctx.moveTo(pad.l+xi, y); first=false; }
+    else ctx.lineTo(pad.l+xi, y);
+  }
+  ctx.stroke();
+
+  // Tangent line at tangentW
+  if(showTangent && tangentW !== undefined) {
+    const tw = tangentW;
+    const tl = (tw-1)*(tw-1)+0.3;
+    const tg = 2*(tw-1);
+    const tx = pad.l + (tw-wMin)/(wMax-wMin)*cw;
+    const ty = pad.t + ch - (tl/lMax)*ch;
+    // tangent: y - ty = tg * (x - tx)  in canvas coords (y inverted)
+    // canvas: y_c = ty - (x_c - tx) * tg * (ch/lMax) * cw/(wMax-wMin)
+    const slope_px = tg * (ch/lMax) / (cw/(wMax-wMin));
+    const len = 80;
+    ctx.beginPath();
+    ctx.strokeStyle = '#ed8936';
+    ctx.lineWidth = 2;
+    ctx.moveTo(tx - len, ty + slope_px * len);
+    ctx.lineTo(tx + len, ty - slope_px * len);
+    ctx.stroke();
+    // slope label
+    ctx.fillStyle='#c05621';
+    ctx.font='bold 11px sans-serif';
+    ctx.textAlign='left';
+    ctx.fillText(`dL/dw = ${tg.toFixed(2)}`, tx+len+4, ty-slope_px*len);
+  }
+
+  // Trajectory dots
+  if(opts.dots) {
+    opts.dots.forEach(({w,l})=>{
+      const dx = pad.l + (w-wMin)/(wMax-wMin)*cw;
+      const dy = pad.t + ch - (l/lMax)*ch;
+      ctx.beginPath();
+      ctx.fillStyle='rgba(66,153,225,0.6)';
+      ctx.arc(dx, dy, 4, 0, Math.PI*2);
+      ctx.fill();
+    });
+  }
+
+  // Current point
+  if(w_cur !== null && w_cur !== undefined) {
+    const l_cur = (w_cur-1)*(w_cur-1)+0.3;
+    const cx_ = pad.l + (w_cur-wMin)/(wMax-wMin)*cw;
+    const cy_ = pad.t + ch - (l_cur/lMax)*ch;
+    // glow
+    ctx.beginPath();
+    ctx.fillStyle='rgba(229,62,62,0.2)';
+    ctx.arc(cx_, cy_, 14, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle='#e53e3e';
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=2.5;
+    ctx.arc(cx_, cy_, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 0
+// ═══════════════════════════════════════════════════════
+let s0 = {};
+
+function s0_init() {
+  const {ctx, W, H} = setupCanvas('c0', 540, 380);
+  s0 = {ctx, W, H, w: -2, hover: null};
+  s0_draw();
+
+  const cvs = document.getElementById('c0');
+  cvs.onmousemove = (e) => {
+    const rect = cvs.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width * s0.W;
+    const w = -3 + mx/s0.W * 6;
+    s0.hover = Math.max(-3, Math.min(3, w));
+    s0_draw();
+  };
+  cvs.onmouseleave = () => { s0.hover = null; s0_draw(); };
+  cvs.onclick = (e) => {
+    const rect = cvs.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width * s0.W;
+    const w = -3 + mx/s0.W * 6;
+    s0.w = Math.max(-3, Math.min(3, w));
+    s0_draw();
+  };
+}
+
+function s0_draw() {
+  draw1DLoss(s0.ctx, s0.W, s0.H, s0.w, s0.hover!==null, s0.hover);
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 1
+// ═══════════════════════════════════════════════════════
+let s1 = {};
+
+function s1_init() {
+  const {ctx, W, H} = setupCanvas('c1', 540, 380);
+  s1 = {ctx, W, H, w: null, targetW: null, animId: null};
+  s1_draw();
+}
+
+function s1_setW(w) {
+  if(s1.animId) { cancelAnimationFrame(s1.animId); s1.animId = null; }
+  const fromW = s1.w === null ? w : s1.w;
+  s1.targetW = w;
+  let t = 0;
+  const from = fromW;
+  function animate() {
+    t += 0.07;
+    if(t >= 1) { s1.w = w; s1_draw(); return; }
+    s1.w = from + (w - from) * (1 - Math.pow(1-t,3));
+    s1_draw();
+    s1.animId = requestAnimationFrame(animate);
+  }
+  animate();
+
+  // Update derivative display
+  const grad = 2*(w-1);
+  const dir = grad > 0 ? '→ 应向左移（减小w）以降低Loss' : grad < 0 ? '→ 应向右移（增大w）以降低Loss' : '→ 已在最优点！梯度=0';
+  const arrow = grad > 0 ? '⬅️' : grad < 0 ? '➡️' : '🎯';
+  const absGrad = Math.abs(grad);
+  document.getElementById('derivDisplay').innerHTML =
+    `<strong>dL/dw = 2×(${w}−1) = <span style="color:#c05621;font-size:1.1em">${grad.toFixed(2)}</span></strong>
+     &nbsp;&nbsp; <span class="arrow">${arrow}</span>
+     &nbsp; <span style="font-size:0.9em">${dir}</span>`;
+
+  document.querySelectorAll('.point-btn').forEach(b => b.classList.remove('active-pt'));
+  const ids = {'-2':'pb_n2', '1':'pb_1', '2.5':'pb_25'};
+  if(ids[String(w)]) document.getElementById(ids[String(w)]).classList.add('active-pt');
+}
+
+function s1_draw() {
+  draw1DLoss(s1.ctx, s1.W, s1.H, s1.w, s1.w !== null, s1.w);
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 2
+// ═══════════════════════════════════════════════════════
+let s2 = {};
+
+function s2_init() {
+  const {ctx, W, H} = setupCanvas('c2', 540, 380);
+  s2 = {ctx, W, H, w: -2, step: 0, dots: [], animId: null, autoId: null};
+  s2_updateStats();
+  s2_draw();
+}
+
+function s2_getLR() { return parseFloat(document.getElementById('lr2').value); }
+
+function s2_lrChange() {
+  document.getElementById('lr2val').textContent = s2_getLR().toFixed(2);
+}
+
+function s2_updateStats() {
+  const l = (s2.w-1)**2 + 0.3;
+  const g = 2*(s2.w-1);
+  document.getElementById('s2_step').textContent = s2.step;
+  document.getElementById('s2_w').textContent = s2.w.toFixed(4);
+  document.getElementById('s2_loss').textContent = l.toFixed(4);
+  document.getElementById('s2_grad').textContent = g.toFixed(4);
+}
+
+function s2_doStep() {
+  const lr = s2_getLR();
+  const g = 2*(s2.w-1);
+  const w_old = s2.w;
+  const l_old = (w_old-1)**2+0.3;
+  s2.dots.push({w: w_old, l: l_old});
+  s2.w = s2.w - lr * g;
+  s2.step++;
+  const l_new = (s2.w-1)**2+0.3;
+  const formula = `w = ${w_old.toFixed(3)} − ${lr.toFixed(2)} × ${g.toFixed(3)} = <strong>${s2.w.toFixed(4)}</strong>`;
+  document.getElementById('s2_formula').innerHTML = `📐 更新步骤 ${s2.step}：&nbsp; ${formula}`;
+  s2_updateStats();
+  s2_draw();
+}
+
+function s2_step() {
+  if(s2.autoId) return;
+  s2_doStep();
+}
+
+function s2_auto() {
+  if(s2.autoId) return;
+  let count = 0;
+  s2.autoId = setInterval(()=>{
+    s2_doStep();
+    count++;
+    if(count>=20 || Math.abs(2*(s2.w-1)) < 0.001) {
+      clearInterval(s2.autoId);
+      s2.autoId = null;
+    }
+  }, 250);
+}
+
+function s2_reset() {
+  if(s2.autoId) { clearInterval(s2.autoId); s2.autoId = null; }
+  s2.w = -2; s2.step = 0; s2.dots = [];
+  document.getElementById('s2_formula').innerHTML = '点击「单步执行」开始梯度下降';
+  s2_updateStats();
+  s2_draw();
+}
+
+function s2_draw() {
+  draw1DLoss(s2.ctx, s2.W, s2.H, s2.w, true, s2.w, {dots: s2.dots});
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 3
+// ═══════════════════════════════════════════════════════
+let s3 = {};
+const S3_LRS = [0.05, 0.3, 1.2];
+const S3_COLORS = ['#e53e3e','#38a169','#3182ce'];
+const S3_LABELS = ['α=0.05（太慢）','α=0.30（理想）','α=1.20（震荡）'];
+const S3_IDS = ['c3a','c3b','c3c'];
+
+function s3_init() {
+  s3.ctxs = S3_IDS.map((id,i)=>{
+    const {ctx,W,H} = setupCanvas(id,200,190);
+    return {ctx,W,H};
+  });
+  const lossCtx = setupCanvas('c3loss',540,160);
+  s3.lossCtx = lossCtx;
+  s3.ws = [-2,-2,-2];
+  s3.histories = [[],[],[]];
+  s3.intervalId = null;
+  s3.epoch = 0;
+  s3_drawAll();
+}
+
+function s3_drawSingle(i) {
+  const {ctx,W,H} = s3.ctxs[i];
+  draw1DLoss(ctx,W,H,s3.ws[i],false,null);
+  // Re-draw with color dot
+  const w = s3.ws[i];
+  const l = (w-1)**2+0.3;
+  const wMin=-3,wMax=3,lMax=15;
+  const pad={l:30,r:10,t:15,b:30};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const cx=pad.l+(w-wMin)/(wMax-wMin)*cw;
+  const cy=pad.t+ch-(l/lMax)*ch;
+  ctx.beginPath();
+  ctx.fillStyle=S3_COLORS[i]+'44';
+  ctx.arc(cx,cy,10,0,Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.fillStyle=S3_COLORS[i];
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=2;
+  ctx.arc(cx,cy,6,0,Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  // label
+  ctx.fillStyle='#2d3748';
+  ctx.font='bold 10px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(S3_LABELS[i], W/2, H-4);
+}
+
+function s3_drawLoss() {
+  const {ctx,W,H} = s3.lossCtx;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#f8faff';
+  ctx.fillRect(0,0,W,H);
+  const pad={l:40,r:20,t:15,b:35};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const maxEp=30;
+  // grid
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const gy=pad.t+ch*(1-i/5);
+    ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cw,gy); ctx.stroke();
+    ctx.fillStyle='#a0aec0'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText((i*2).toFixed(0),pad.l-3,gy+3);
+  }
+  // axes labels
+  ctx.fillStyle='#4a5568'; ctx.font='bold 10px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('Epoch',pad.l+cw/2,H-4);
+  ctx.save(); ctx.translate(12,pad.t+ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Loss',0,0); ctx.restore();
+
+  const lMax=10;
+  for(let i=0;i<3;i++){
+    const hist=s3.histories[i];
+    if(hist.length<2) continue;
+    ctx.beginPath();
+    ctx.strokeStyle=S3_COLORS[i];
+    ctx.lineWidth=2;
+    hist.forEach((l,ep)=>{
+      const x=pad.l+(ep/maxEp)*cw;
+      const y=pad.t+ch-(Math.min(l,lMax)/lMax)*ch;
+      ep===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  // legend
+  S3_COLORS.forEach((c,i)=>{
+    ctx.fillStyle=c;
+    ctx.fillRect(pad.l+i*140, pad.t+2, 16, 4);
+    ctx.fillStyle='#2d3748'; ctx.font='10px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(S3_LABELS[i], pad.l+i*140+20, pad.t+8);
+  });
+}
+
+function s3_drawAll() {
+  for(let i=0;i<3;i++) s3_drawSingle(i);
+  s3_drawLoss();
+  // update chips
+  ['s3la','s3lb','s3lc'].forEach((id,i)=>{
+    const l=(s3.ws[i]-1)**2+0.3;
+    document.getElementById(id).textContent=l.toFixed(3);
+  });
+}
+
+function s3_play() {
+  if(s3.intervalId) return;
+  s3.epoch = 0;
+  s3.intervalId = setInterval(()=>{
+    for(let i=0;i<3;i++){
+      const g=2*(s3.ws[i]-1);
+      s3.ws[i] = s3.ws[i] - S3_LRS[i]*g;
+      const l=(s3.ws[i]-1)**2+0.3;
+      s3.histories[i].push(l);
+    }
+    s3.epoch++;
+    s3_drawAll();
+    if(s3.epoch>=30){ clearInterval(s3.intervalId); s3.intervalId=null; }
+  }, 120);
+}
+
+function s3_reset() {
+  if(s3.intervalId){ clearInterval(s3.intervalId); s3.intervalId=null; }
+  s3.ws=[-2,-2,-2];
+  s3.histories=[[],[],[]];
+  s3.epoch=0;
+  // Push initial loss
+  for(let i=0;i<3;i++) s3.histories[i].push((s3.ws[i]-1)**2+0.3);
+  s3_drawAll();
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 4 — 2D contour
+// ═══════════════════════════════════════════════════════
+let s4 = {};
+
+function s4_loss(w1,w2){ return (w1-0.5)**2 + 2*(w2+0.3)**2; }
+function s4_grad(w1,w2){ return [2*(w1-0.5), 4*(w2+0.3)]; }
+
+function s4_init() {
+  const {ctx,W,H} = setupCanvas('c4', 540, 400);
+  s4 = {
+    ctx, W, H,
+    w1: -1.5, w2: 1.5,
+    step: 0,
+    trail: [],
+    intervalId: null,
+    heatmap: null
+  };
+  s4_buildHeatmap();
+  s4_updateStats();
+  s4_draw();
+}
+
+function s4_getLR() { return parseFloat(document.getElementById('lr4').value); }
+
+function s4_lrChange() {
+  document.getElementById('lr4val').textContent = s4_getLR().toFixed(2);
+}
+
+function s4_buildHeatmap() {
+  const W=s4.W, H=s4.H;
+  const off = s4.ctx.createImageData(W*DPR, H*DPR);
+  const pad={l:50,r:20,t:20,b:40};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const w1Min=-2, w1Max=2, w2Min=-2, w2Max=2;
+  const lMax=15;
+
+  for(let py=0; py<H*DPR; py++){
+    for(let px=0; px<W*DPR; px++){
+      // canvas px → css px → w coords
+      const cx=px/DPR, cy=py/DPR;
+      const w1=w1Min+(cx-pad.l)/cw*(w1Max-w1Min);
+      const w2=w2Min+(1-(cy-pad.t)/ch)*(w2Max-w2Min);
+      const l=Math.min(s4_loss(w1,w2), lMax);
+      const t=l/lMax; // 0..1
+      // blue→green→yellow→red
+      let r,g,b;
+      if(t<0.33){ const tt=t/0.33; r=0; g=Math.round(tt*180); b=Math.round(255-tt*100); }
+      else if(t<0.66){ const tt=(t-0.33)/0.33; r=Math.round(tt*255); g=Math.round(180-tt*80); b=Math.round(155-tt*155); }
+      else { const tt=(t-0.66)/0.34; r=255; g=Math.round(100-tt*100); b=0; }
+      const idx=(py*W*DPR+px)*4;
+      off.data[idx]=r; off.data[idx+1]=g; off.data[idx+2]=b; off.data[idx+3]=200;
+    }
+  }
+  s4.heatmap = off;
+}
+
+function s4_draw() {
+  const {ctx,W,H} = s4;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#f0f4ff';
+  ctx.fillRect(0,0,W,H);
+
+  const pad={l:50,r:20,t:20,b:40};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const w1Min=-2, w1Max=2, w2Min=-2, w2Max=2;
+
+  // Draw heatmap to temp canvas (at DPR scale)
+  if(s4.heatmap) {
+    const tmp = document.createElement('canvas');
+    tmp.width = W*DPR; tmp.height = H*DPR;
+    tmp.getContext('2d').putImageData(s4.heatmap, 0, 0);
+    ctx.save();
+    ctx.scale(1/DPR, 1/DPR);
+    ctx.drawImage(tmp, 0, 0);
+    ctx.restore();
+  }
+
+  // Contour lines (10 levels)
+  const lMax=12;
+  ctx.save();
+  // We'll draw contour lines as circles since the loss is elliptical
+  for(let lvl=1; lvl<=10; lvl++){
+    const l = lvl * lMax/10;
+    // L = (w1-0.5)² + 2(w2+0.3)² = l
+    // Semi axes: a=sqrt(l) along w1, b=sqrt(l/2) along w2
+    const a = Math.sqrt(l);
+    const b = Math.sqrt(l/2);
+    const cx_=pad.l+(0.5-w1Min)/(w1Max-w1Min)*cw;
+    const cy_=pad.t+(1-((-0.3)-w2Min)/(w2Max-w2Min))*ch;
+    const axW = a/(w1Max-w1Min)*cw;
+    const axH = b/(w2Max-w2Min)*ch;
+    ctx.beginPath();
+    ctx.ellipse(cx_, cy_, axW, axH, 0, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.3)';
+    ctx.lineWidth=0.8;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.15)';
+  ctx.lineWidth=0.5;
+  for(let xi=-2;xi<=2;xi++){
+    const x=pad.l+(xi-w1Min)/(w1Max-w1Min)*cw;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ch); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(xi, x, pad.t+ch+14);
+  }
+  for(let yi=-2;yi<=2;yi++){
+    const y=pad.t+(1-(yi-w2Min)/(w2Max-w2Min))*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(yi, pad.l-4, y+3);
+  }
+
+  // Axis labels
+  ctx.fillStyle='rgba(255,255,255,0.8)'; ctx.font='bold 12px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('w₁', pad.l+cw/2, H-4);
+  ctx.save(); ctx.translate(14, pad.t+ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('w₂', 0, 0); ctx.restore();
+
+  // Optimal point (green ×)
+  const ox=pad.l+(0.5-w1Min)/(w1Max-w1Min)*cw;
+  const oy=pad.t+(1-(-0.3-w2Min)/(w2Max-w2Min))*ch;
+  ctx.strokeStyle='#68d391'; ctx.lineWidth=3;
+  const cs=8;
+  ctx.beginPath(); ctx.moveTo(ox-cs,oy-cs); ctx.lineTo(ox+cs,oy+cs); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox+cs,oy-cs); ctx.lineTo(ox-cs,oy+cs); ctx.stroke();
+
+  // Trail
+  if(s4.trail.length>=2){
+    ctx.beginPath();
+    ctx.strokeStyle='rgba(100,180,255,0.8)';
+    ctx.lineWidth=1.5;
+    s4.trail.forEach(([w1,w2],i)=>{
+      const x=pad.l+(w1-w1Min)/(w1Max-w1Min)*cw;
+      const y=pad.t+(1-(w2-w2Min)/(w2Max-w2Min))*ch;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // trail dots
+    s4.trail.forEach(([w1,w2])=>{
+      const x=pad.l+(w1-w1Min)/(w1Max-w1Min)*cw;
+      const y=pad.t+(1-(w2-w2Min)/(w2Max-w2Min))*ch;
+      ctx.beginPath();
+      ctx.fillStyle='rgba(100,180,255,0.5)';
+      ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fill();
+    });
+  }
+
+  // Current point
+  const cx_=pad.l+(s4.w1-w1Min)/(w1Max-w1Min)*cw;
+  const cy_=pad.t+(1-(s4.w2-w2Min)/(w2Max-w2Min))*ch;
+  ctx.beginPath();
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.arc(cx_,cy_,14,0,Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.fillStyle='#fff';
+  ctx.strokeStyle='#667eea';
+  ctx.lineWidth=2.5;
+  ctx.arc(cx_,cy_,7,0,Math.PI*2);
+  ctx.fill(); ctx.stroke();
+}
+
+function s4_updateStats(){
+  const l=s4_loss(s4.w1,s4.w2);
+  document.getElementById('s4_step').textContent=s4.step;
+  document.getElementById('s4_w1').textContent=s4.w1.toFixed(3);
+  document.getElementById('s4_w2').textContent=s4.w2.toFixed(3);
+  document.getElementById('s4_loss').textContent=l.toFixed(4);
+}
+
+function s4_doStep(){
+  const lr=s4_getLR();
+  const [g1,g2]=s4_grad(s4.w1,s4.w2);
+  s4.trail.push([s4.w1,s4.w2]);
+  s4.w1 -= lr*g1;
+  s4.w2 -= lr*g2;
+  s4.step++;
+  s4_updateStats();
+  s4_draw();
+}
+
+function s4_step(){ s4_doStep(); }
+
+function s4_auto(){
+  if(s4.intervalId) return;
+  let cnt=0;
+  s4.intervalId=setInterval(()=>{
+    s4_doStep(); cnt++;
+    if(cnt>=60 || s4_loss(s4.w1,s4.w2)<0.001){
+      clearInterval(s4.intervalId); s4.intervalId=null;
+    }
+  },80);
+}
+
+function s4_reset(){
+  if(s4.intervalId){ clearInterval(s4.intervalId); s4.intervalId=null; }
+  s4.w1=-1.5; s4.w2=1.5; s4.step=0; s4.trail=[];
+  s4_updateStats(); s4_draw();
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 5 — SGD variants
+// ═══════════════════════════════════════════════════════
+let s5 = {};
+const S5_MODES = {
+  sgd:  { noise:0.8, color:'#f5576c', label:'SGD（高噪声）' },
+  mini: { noise:0.25, color:'#667eea', label:'Mini-batch（中噪声）' },
+  batch:{ noise:0.01, color:'#48bb78', label:'Batch GD（低噪声）' }
+};
+
+function s5_loss(w1,w2){ return (w1-0.5)**2 + 2*(w2+0.3)**2; }
+
+function s5_init(){
+  const {ctx,W,H}=setupCanvas('c5',540,360);
+  s5={ctx,W,H,mode:'sgd',w1:-1.5,w2:1.5,trail:[],intervalId:null,heatmap:null};
+  s5_buildHeatmap();
+  s5_draw();
+}
+
+function s5_buildHeatmap(){
+  const W=s5.W, H=s5.H;
+  const off=s5.ctx.createImageData(W*DPR,H*DPR);
+  const pad={l:50,r:20,t:20,b:40};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const w1Min=-2,w1Max=2,w2Min=-2,w2Max=2,lMax=15;
+  for(let py=0;py<H*DPR;py++){
+    for(let px=0;px<W*DPR;px++){
+      const cx=px/DPR,cy=py/DPR;
+      const w1=w1Min+(cx-pad.l)/cw*(w1Max-w1Min);
+      const w2=w2Min+(1-(cy-pad.t)/ch)*(w2Max-w2Min);
+      const l=Math.min(s5_loss(w1,w2),lMax);
+      const t=l/lMax;
+      let r,g,b;
+      if(t<0.33){const tt=t/0.33;r=0;g=Math.round(tt*180);b=Math.round(255-tt*100);}
+      else if(t<0.66){const tt=(t-0.33)/0.33;r=Math.round(tt*255);g=Math.round(180-tt*80);b=Math.round(155-tt*155);}
+      else{const tt=(t-0.66)/0.34;r=255;g=Math.round(100-tt*100);b=0;}
+      const idx=(py*W*DPR+px)*4;
+      off.data[idx]=r;off.data[idx+1]=g;off.data[idx+2]=b;off.data[idx+3]=200;
+    }
+  }
+  s5.heatmap=off;
+}
+
+function s5_setMode(mode){
+  s5.mode=mode;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab5_'+mode).classList.add('active');
+  s5_reset();
+}
+
+function s5_draw(){
+  const {ctx,W,H}=s5;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#f0f4ff';
+  ctx.fillRect(0,0,W,H);
+
+  const pad={l:50,r:20,t:20,b:40};
+  const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  const w1Min=-2,w1Max=2,w2Min=-2,w2Max=2;
+
+  if(s5.heatmap){
+    const tmp=document.createElement('canvas');
+    tmp.width=W*DPR;tmp.height=H*DPR;
+    tmp.getContext('2d').putImageData(s5.heatmap,0,0);
+    ctx.save();ctx.scale(1/DPR,1/DPR);ctx.drawImage(tmp,0,0);ctx.restore();
+  }
+
+  // Contour ellipses
+  const lMax=12;
+  for(let lvl=1;lvl<=8;lvl++){
+    const l=lvl*lMax/8;
+    const a=Math.sqrt(l),b=Math.sqrt(l/2);
+    const cx_=pad.l+(0.5-w1Min)/(w1Max-w1Min)*cw;
+    const cy_=pad.t+(1-(-0.3-w2Min)/(w2Max-w2Min))*ch;
+    ctx.beginPath();
+    ctx.ellipse(cx_,cy_,a/(w1Max-w1Min)*cw,b/(w2Max-w2Min)*ch,0,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=0.8;ctx.stroke();
+  }
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=0.5;
+  for(let xi=-2;xi<=2;xi++){
+    const x=pad.l+(xi-w1Min)/(w1Max-w1Min)*cw;
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+ch);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText(xi,x,pad.t+ch+14);
+  }
+  for(let yi=-2;yi<=2;yi++){
+    const y=pad.t+(1-(yi-w2Min)/(w2Max-w2Min))*ch;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='10px sans-serif';ctx.textAlign='right';
+    ctx.fillText(yi,pad.l-4,y+3);
+  }
+
+  // Optimal
+  const ox=pad.l+(0.5-w1Min)/(w1Max-w1Min)*cw;
+  const oy=pad.t+(1-(-0.3-w2Min)/(w2Max-w2Min))*ch;
+  ctx.strokeStyle='#68d391';ctx.lineWidth=2.5;
+  const cs=7;
+  ctx.beginPath();ctx.moveTo(ox-cs,oy-cs);ctx.lineTo(ox+cs,oy+cs);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox+cs,oy-cs);ctx.lineTo(ox-cs,oy+cs);ctx.stroke();
+
+  // Trail
+  const mc=S5_MODES[s5.mode];
+  if(s5.trail.length>=2){
+    ctx.beginPath();
+    ctx.strokeStyle=mc.color+'cc';
+    ctx.lineWidth=1.5;
+    s5.trail.forEach(([w1,w2],i)=>{
+      const x=pad.l+(w1-w1Min)/(w1Max-w1Min)*cw;
+      const y=pad.t+(1-(w2-w2Min)/(w2Max-w2Min))*ch;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    s5.trail.forEach(([w1,w2])=>{
+      const x=pad.l+(w1-w1Min)/(w1Max-w1Min)*cw;
+      const y=pad.t+(1-(w2-w2Min)/(w2Max-w2Min))*ch;
+      ctx.beginPath();ctx.fillStyle=mc.color+'80';
+      ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();
+    });
+  }
+
+  // Current
+  const cx_=pad.l+(s5.w1-w1Min)/(w1Max-w1Min)*cw;
+  const cy_=pad.t+(1-(s5.w2-w2Min)/(w2Max-w2Min))*ch;
+  ctx.beginPath();ctx.fillStyle=mc.color+'40';
+  ctx.arc(cx_,cy_,14,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.fillStyle='#fff';ctx.strokeStyle=mc.color;ctx.lineWidth=2.5;
+  ctx.arc(cx_,cy_,7,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // Mode label
+  ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='bold 12px sans-serif';ctx.textAlign='left';
+  ctx.fillText(mc.label, pad.l+4, pad.t+16);
+}
+
+function s5_doStep(){
+  const mc=S5_MODES[s5.mode];
+  const noise=mc.noise;
+  const lr=0.15;
+  const g1=2*(s5.w1-0.5)+( Math.random()-0.5)*2*noise;
+  const g2=4*(s5.w2+0.3)+( Math.random()-0.5)*2*noise;
+  s5.trail.push([s5.w1,s5.w2]);
+  s5.w1-=lr*g1;
+  s5.w2-=lr*g2;
+  // clamp
+  s5.w1=Math.max(-2,Math.min(2,s5.w1));
+  s5.w2=Math.max(-2,Math.min(2,s5.w2));
+  s5_draw();
+}
+
+function s5_play(){
+  if(s5.intervalId) return;
+  let cnt=0;
+  s5.intervalId=setInterval(()=>{
+    s5_doStep(); cnt++;
+    if(cnt>=50){ clearInterval(s5.intervalId); s5.intervalId=null; }
+  }, 80);
+}
+
+function s5_reset(){
+  if(s5.intervalId){ clearInterval(s5.intervalId); s5.intervalId=null; }
+  s5.w1=-1.5;s5.w2=1.5;s5.trail=[];
+  s5_draw();
+}
+
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('load', ()=>{
+  // init all (canvas sizing happens lazily per initStep)
+  initStep(0);
+  // Pre-init others for quick switching
+  // But don't render hidden ones; they init on goStep()
+});
+
+</script>
+</body>
+</html>

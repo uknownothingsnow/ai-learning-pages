@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>词嵌入与序列到序列 — 交互式教程</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100vh;
+  background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);
+  font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+  color:#e0e6f0;
+  padding:24px 16px 60px;
+}
+h1.title{
+  text-align:center;
+  font-size:2rem;
+  font-weight:700;
+  margin-bottom:8px;
+  background:linear-gradient(135deg,#a78bfa,#60a5fa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.subtitle{text-align:center;color:#94a3b8;margin-bottom:28px;font-size:.95rem}
+
+/* NAV */
+.nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px}
+.nav-btn{
+  padding:8px 18px;border:none;border-radius:999px;cursor:pointer;
+  background:rgba(255,255,255,.1);color:#cbd5e1;font-size:.85rem;
+  transition:all .25s;font-weight:500;
+}
+.nav-btn:hover{background:rgba(255,255,255,.18)}
+.nav-btn.active{
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  color:#fff;box-shadow:0 4px 16px rgba(102,126,234,.4);
+}
+
+/* CONTAINER */
+.container{
+  max-width:1300px;margin:0 auto;
+  background:rgba(255,255,255,.97);border-radius:20px;
+  overflow:hidden;color:#1e293b;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+.step-view{display:none}
+.step-view.active{display:flex;flex-wrap:wrap;min-height:520px}
+
+/* PANELS */
+.viz-panel{
+  flex:1 1 58%;padding:32px;
+  background:#f8fafc;border-right:1px solid #e2e8f0;
+  min-width:300px;
+}
+.info-panel{
+  flex:1 1 38%;padding:32px;background:#fff;
+  min-width:280px;
+}
+.panel-title{
+  font-size:1.25rem;font-weight:700;margin-bottom:18px;color:#1e293b;
+}
+.panel-title span{
+  display:inline-block;padding:4px 14px;border-radius:999px;
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  color:#fff;font-size:.8rem;margin-right:8px;vertical-align:middle;
+}
+
+/* FORMULA BOX */
+.formula{
+  background:#1a1a2e;border-radius:10px;padding:16px;margin:14px 0;
+  font-family:'Courier New',monospace;font-size:.9rem;line-height:1.8;
+  color:#e2e8f0;border-left:3px solid #667eea;
+}
+.formula .hl{color:#f6d860;font-weight:700}
+.formula .dim{color:#94a3b8}
+
+/* CARDS */
+.card{
+  background:#f0f4ff;border-radius:12px;padding:16px;margin-bottom:14px;
+  border-left:4px solid #667eea;
+}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:6px;color:#3730a3}
+.card p{font-size:.85rem;line-height:1.65;color:#475569}
+.card ul{padding-left:18px;margin-top:6px}
+.card ul li{font-size:.85rem;line-height:1.7;color:#475569}
+
+/* BUTTONS */
+.btn{
+  display:inline-block;padding:8px 20px;border:none;border-radius:8px;
+  cursor:pointer;font-size:.85rem;font-weight:600;margin:4px;
+  transition:all .2s;
+}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-secondary{background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe}
+.btn-secondary:hover{background:#c7d2fe}
+.btn-active{background:linear-gradient(135deg,#f59e0b,#ef4444)!important;color:#fff!important}
+
+/* BADGE */
+.badge{
+  display:inline-block;padding:2px 10px;border-radius:999px;
+  font-size:.75rem;font-weight:700;margin:2px;
+}
+.badge-animal{background:#d1fae5;color:#065f46}
+.badge-food{background:#fef3c7;color:#92400e}
+.badge-transport{background:#dbeafe;color:#1e40af}
+
+/* CANVAS */
+canvas{border-radius:10px;background:#0d1117;display:block}
+
+/* RANGE */
+input[type=range]{
+  width:100%;margin:8px 0;accent-color:#667eea;
+}
+
+/* MATRIX TABLE */
+.mat-wrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.mat-block{flex:1;min-width:180px}
+.mat-title{font-size:.8rem;font-weight:700;color:#475569;margin-bottom:6px}
+table.mat{border-collapse:collapse;width:100%}
+table.mat th,table.mat td{
+  border:1px solid #e2e8f0;padding:6px 10px;
+  font-size:.82rem;text-align:center;cursor:pointer;transition:all .25s;
+}
+table.mat th{background:#f1f5f9;font-weight:700;color:#64748b}
+table.mat td.one{background:#fef9c3;color:#92400e;font-weight:700}
+table.mat td.zero{background:#f8fafc;color:#94a3b8}
+table.mat td.emb{background:#e0f2fe;color:#0369a1;font-weight:600}
+table.mat tr.hl-row td{box-shadow:inset 0 0 0 2px #667eea}
+
+/* SENTENCE */
+.sentence{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;align-items:center}
+.word-chip{
+  padding:8px 14px;border-radius:8px;font-size:1rem;font-weight:600;
+  cursor:pointer;transition:all .25s;background:#e0e7ff;color:#3730a3;
+  border:2px solid transparent;
+}
+.word-chip.center{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1a2e;
+  border-color:#d97706;transform:scale(1.12)}
+.word-chip.context{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;
+  border-color:#ea580c}
+.word-chip.inactive{background:#f1f5f9;color:#94a3b8}
+
+/* PAIR TABLE */
+.pair-list{list-style:none;padding:0;margin:12px 0}
+.pair-list li{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-radius:6px;margin-bottom:4px;font-size:.85rem;
+  background:#f8fafc;border:1px solid #e2e8f0;
+}
+.pair-list li .pin{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+}
+
+/* LOSS CHART */
+.loss-wrap{margin:12px 0}
+.loss-canvas{border-radius:8px;background:#0d1117}
+
+/* SEQ2SEQ */
+.seq-stage{
+  display:none;
+  padding:12px;border-radius:10px;margin:8px 0;
+}
+.seq-stage.active{display:block}
+
+/* BAR CHART */
+.bar-group{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{font-size:.82rem;color:#475569;width:120px;flex-shrink:0;font-weight:600}
+.bar-track{flex:1;height:22px;background:#e2e8f0;border-radius:999px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:999px;transition:width .6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:.75rem;font-weight:700;color:#fff}
+.bar-good{background:linear-gradient(90deg,#10b981,#34d399)}
+.bar-bad{background:linear-gradient(90deg,#ef4444,#f87171)}
+.bar-ok{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+
+/* PROGRESS */
+.progress-bar{
+  height:6px;background:#e0e7ff;border-radius:3px;margin:8px 0;overflow:hidden;
+}
+.progress-fill{
+  height:100%;background:linear-gradient(90deg,#667eea,#764ba2);
+  border-radius:3px;transition:width .3s;
+}
+
+/* NETWORK */
+.net-layer{display:flex;justify-content:center;gap:10px;margin:6px 0}
+.net-node{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700;border:2px solid transparent;
+}
+
+/* TOOLTIP */
+.tooltip{
+  position:absolute;background:#1e293b;color:#f1f5f9;
+  padding:6px 12px;border-radius:6px;font-size:.78rem;
+  pointer-events:none;z-index:999;white-space:nowrap;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+
+/* STEPS INDICATOR */
+.step-indicator{
+  display:flex;justify-content:center;gap:8px;margin-bottom:20px;
+}
+.step-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:rgba(255,255,255,.2);transition:all .3s;
+}
+.step-dot.active{background:linear-gradient(135deg,#667eea,#764ba2);transform:scale(1.3)}
+
+@media(max-width:900px){
+  .step-view{flex-direction:column}
+  .viz-panel,.info-panel{flex:1 1 100%;border-right:none;border-bottom:1px solid #e2e8f0}
+  h1.title{font-size:1.4rem}
+  .nav-btn{padding:6px 12px;font-size:.78rem}
+}
+</style>
+</head>
+<body>
+
+<h1 class="title">🧠 词嵌入与序列到序列</h1>
+<p class="subtitle">Word Embedding · word2vec · Seq2Seq — StatQuest 风格交互教程</p>
+
+<div class="nav" id="nav">
+  <button class="nav-btn active" onclick="goStep(0)">Step 0｜词的表示</button>
+  <button class="nav-btn" onclick="goStep(1)">Step 1｜嵌入空间</button>
+  <button class="nav-btn" onclick="goStep(2)">Step 2｜Skip-gram</button>
+  <button class="nav-btn" onclick="goStep(3)">Step 3｜训练过程</button>
+  <button class="nav-btn" onclick="goStep(4)">Step 4｜Seq2Seq</button>
+  <button class="nav-btn" onclick="goStep(5)">Step 5｜长句瓶颈</button>
+</div>
+
+<div class="step-indicator" id="stepIndicator"></div>
+
+<div class="container">
+
+<!-- ===== STEP 0 ===== -->
+<div class="step-view active" id="step-0">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 0</span>One-hot vs 嵌入向量</div>
+    <p style="font-size:.85rem;color:#64748b;margin-bottom:16px">👆 点击任意词，查看 One-hot 与 Embedding 行高亮</p>
+    <div class="mat-wrap" id="s0-mats">
+      <div class="mat-block">
+        <div class="mat-title">📊 One-hot 编码（稀疏）</div>
+        <table class="mat" id="onehot-table">
+          <thead><tr><th>词</th><th>d₁</th><th>d₂</th><th>d₃</th><th>d₄</th></tr></thead>
+          <tbody>
+            <tr data-word="0"><td>🐱 猫</td><td class="one">1</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr data-word="1"><td>🐶 狗</td><td class="zero">0</td><td class="one">1</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr data-word="2"><td>🍎 苹果</td><td class="zero">0</td><td class="zero">0</td><td class="one">1</td><td class="zero">0</td></tr>
+            <tr data-word="3"><td>🚗 汽车</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="one">1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mat-block">
+        <div class="mat-title">✨ 嵌入矩阵（稠密，3维）</div>
+        <table class="mat" id="emb-table">
+          <thead><tr><th>词</th><th>e₁</th><th>e₂</th><th>e₃</th></tr></thead>
+          <tbody>
+            <tr data-word="0"><td>🐱 猫</td><td class="emb">0.21</td><td class="emb">0.87</td><td class="emb">-0.34</td></tr>
+            <tr data-word="1"><td>🐶 狗</td><td class="emb">0.19</td><td class="emb">0.83</td><td class="emb">-0.29</td></tr>
+            <tr data-word="2"><td>🍎 苹果</td><td class="emb">-0.45</td><td class="emb">0.12</td><td class="emb">0.78</td></tr>
+            <tr data-word="3"><td>🚗 汽车</td><td class="emb">0.62</td><td class="emb">-0.51</td><td class="emb">0.15</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:14px;background:#f0f9ff;border-radius:10px;border:1px solid #bae6fd">
+      <p style="font-size:.82rem;color:#0369a1;font-weight:700;margin-bottom:8px">🔑 关键对比</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px">
+          <p style="font-size:.8rem;color:#64748b"><b>One-hot</b><br>• 维度 = 词表大小 (如5万)<br>• 极度稀疏<br>• 词间无关系</p>
+        </div>
+        <div style="flex:1;min-width:130px">
+          <p style="font-size:.8rem;color:#64748b"><b>Embedding</b><br>• 维度 = 64~512<br>• 稠密向量<br>• 相似词向量相近 ✅</p>
+        </div>
+      </div>
+    </div>
+    <div class="formula">
+      One-hot: <span class="hl">猫 → [1, 0, 0, 0]</span>  <span class="dim"># 5万维</span><br>
+      Embedding: <span class="hl">猫 → [0.21, 0.87, -0.34]</span>  <span class="dim"># 仅3维</span><br>
+      余弦相似度: <span class="hl">sim(猫, 狗) = 0.99</span>  <span class="dim"># 语义相近</span>
+    </div>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">为什么需要嵌入？</div>
+    <div class="card">
+      <h3>🎯 One-hot 的问题</h3>
+      <ul>
+        <li>词表大小通常 3万~50万，向量极度稀疏</li>
+        <li>任意两词余弦相似度为 0，无语义信息</li>
+        <li>存储和计算代价高昂</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>✨ 嵌入的优势</h3>
+      <ul>
+        <li>将词映射到低维稠密向量空间</li>
+        <li>相似含义的词，向量距离更近</li>
+        <li>捕获词法、语法、语义关系</li>
+        <li>可用于下游任务的特征输入</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📐 维度选择</h3>
+      <p>嵌入维度通常在 <b>64 ~ 512</b> 之间：</p>
+      <ul>
+        <li>小模型：64 ~ 128 维</li>
+        <li>中等模型：256 维</li>
+        <li>大模型 (BERT/GPT)：768 ~ 4096 维</li>
+      </ul>
+    </div>
+    <div class="formula">
+      嵌入矩阵 W ∈ <span class="hl">ℝ^(V×d)</span><br>
+      V = 词表大小，d = 嵌入维度<br>
+      <span class="dim">通过反向传播学习得到</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STEP 1 ===== -->
+<div class="step-view" id="step-1">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 1</span>2D 嵌入空间</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary" id="btn-analogy" onclick="s1Analogy()">👑 国王类比</button>
+      <button class="btn btn-secondary" onclick="s1ShowCluster('animal')">🐾 动物簇</button>
+      <button class="btn btn-secondary" onclick="s1ShowCluster('food')">🍎 食物簇</button>
+      <button class="btn btn-secondary" onclick="s1ShowCluster('transport')">🚗 交通簇</button>
+      <button class="btn btn-secondary" onclick="s1ResetView()">🔄 重置</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <span class="badge badge-animal">● 动物</span>
+      <span class="badge badge-food">● 食物</span>
+      <span class="badge badge-transport">● 交通</span>
+    </div>
+    <canvas id="c1" style="width:100%;max-width:560px;height:380px"></canvas>
+    <p style="font-size:.78rem;color:#64748b;margin-top:8px">🖱️ 鼠标悬停词 → 查看最近邻连线</p>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">语义相似度与类比运算</div>
+    <div class="card">
+      <h3>🗺️ 嵌入空间的奇妙特性</h3>
+      <p>相似含义的词在向量空间中聚集，语义关系体现为几何关系。</p>
+    </div>
+    <div class="card">
+      <h3>🔢 余弦相似度</h3>
+      <div class="formula" style="font-size:.8rem">
+        cos(A,B) = <span class="hl">A·B / (|A|·|B|)</span><br>
+        <span class="dim">取值范围 [-1, 1]，越大越相似</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>👑 向量类比（最惊人的特性）</h3>
+      <div class="formula" style="font-size:.8rem">
+        <span class="hl">king</span> - <span class="hl">man</span> + <span class="hl">woman</span> ≈ <span class="hl">queen</span><br>
+        <span class="hl">Paris</span> - <span class="hl">France</span> + <span class="hl">Germany</span> ≈ <span class="hl">Berlin</span><br>
+        <span class="dim">语义关系 = 向量差</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔍 最近邻搜索</h3>
+      <ul>
+        <li>给定词向量，找余弦相似度最高的 k 个词</li>
+        <li>应用：词义消歧、同义词发现</li>
+        <li>工具：FAISS、Annoy（近似最近邻）</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STEP 2 ===== -->
+<div class="step-view" id="step-2">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 2</span>word2vec Skip-gram</div>
+    <div id="s2-sentence" class="sentence"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" onclick="s2MoveWindow()">▶ 移动窗口</button>
+      <button class="btn btn-secondary" onclick="s2Reset()">🔄 重置</button>
+      <span style="font-size:.82rem;color:#64748b">窗口大小 = 2</span>
+    </div>
+    <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:12px">
+      <p style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:8px">训练对 (中心词 → 上下文词)</p>
+      <ul class="pair-list" id="s2-pairs"></ul>
+    </div>
+    <!-- Network diagram -->
+    <div style="background:#0d1117;border-radius:10px;padding:14px;margin-bottom:12px">
+      <p style="font-size:.78rem;color:#94a3b8;text-align:center;margin-bottom:10px">Skip-gram 简化网络结构</p>
+      <canvas id="net-canvas" style="width:100%;height:140px"></canvas>
+    </div>
+    <!-- Loss -->
+    <div class="loss-wrap">
+      <p style="font-size:.78rem;color:#64748b;margin-bottom:4px">训练 Loss 曲线</p>
+      <canvas id="loss-canvas" class="loss-canvas" style="width:100%;height:80px"></canvas>
+    </div>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">Skip-gram vs CBOW</div>
+    <div class="card">
+      <h3>🎯 Skip-gram（当前展示）</h3>
+      <p>以<b>中心词</b>为输入，预测<b>上下文词</b>。适合低频词，训练数据更多。</p>
+      <div class="formula" style="font-size:.78rem">
+        输入: <span class="hl">cat</span> → 预测: <span class="hl">the, sat</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔄 CBOW（对比）</h3>
+      <p>以<b>上下文词</b>为输入，预测<b>中心词</b>。训练速度更快，常用于大词表。</p>
+      <div class="formula" style="font-size:.78rem">
+        输入: <span class="hl">[the, sat]</span> → 预测: <span class="hl">cat</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>⚡ 负采样（Negative Sampling）</h3>
+      <ul>
+        <li>原始 Softmax 需计算所有词，代价 O(V)</li>
+        <li>负采样：每次只更新 k 个"噪声词"</li>
+        <li>常用 k = 5~20，速度提升 1000×</li>
+      </ul>
+      <div class="formula" style="font-size:.78rem">
+        Loss = -log σ(<span class="hl">v·u_pos</span>) - Σlog σ(<span class="hl">-v·u_neg</span>)
+      </div>
+    </div>
+    <div class="card">
+      <h3>📏 目标函数</h3>
+      <div class="formula" style="font-size:.78rem">
+        max Σ Σ <span class="hl">log P(w_c | w_t)</span><br>
+        <span class="dim">t=中心词位置，c=上下文窗口</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STEP 3 ===== -->
+<div class="step-view" id="step-3">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 3</span>嵌入矩阵学习过程</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" id="s3-train-btn" onclick="s3StartTrain()">▶ 开始训练</button>
+      <button class="btn btn-secondary" onclick="s3Reset()">🔄 重置</button>
+      <span style="font-size:.82rem;color:#64748b" id="s3-step-label">步数: 0</span>
+    </div>
+    <input type="range" id="s3-slider" min="0" max="100" value="0" oninput="s3SliderMove(this.value)">
+    <div style="display:flex;justify-content:space-between;font-size:.75rem;color:#94a3b8;margin-bottom:12px">
+      <span>随机初始化</span><span>逐渐聚类</span><span>收敛</span>
+    </div>
+    <canvas id="c3" style="width:100%;max-width:560px;height:360px"></canvas>
+    <div class="progress-bar"><div class="progress-fill" id="s3-progress" style="width:0%"></div></div>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">预训练嵌入与迁移学习</div>
+    <div class="card">
+      <h3>📚 GloVe（Global Vectors）</h3>
+      <ul>
+        <li>斯坦福 2014 年提出</li>
+        <li>利用全局共现矩阵统计</li>
+        <li>训练于 Wikipedia + Gigaword (6B tokens)</li>
+        <li>提供 50d / 100d / 200d / 300d 版本</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>⚡ fastText（Facebook）</h3>
+      <ul>
+        <li>将词拆成字符 n-gram</li>
+        <li>能处理未登录词（OOV）</li>
+        <li>支持 157 种语言预训练</li>
+      </ul>
+      <div class="formula" style="font-size:.78rem">
+        <span class="dim">猫 = n-gram(</span><span class="hl">猫</span><span class="dim">) 的平均</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔁 迁移学习</h3>
+      <p>用预训练嵌入初始化，在下游任务微调：</p>
+      <ul>
+        <li><b>冻结嵌入层</b>：节省计算，防止过拟合</li>
+        <li><b>微调嵌入层</b>：适应领域词汇</li>
+        <li>BERT/GPT 更进一步：整个模型预训练</li>
+      </ul>
+    </div>
+    <div class="formula">
+      学习目标: <span class="hl">相似词 → 相近向量</span><br>
+      <span class="dim">训练信号来自共现统计</span><br>
+      W_emb ∈ <span class="hl">ℝ^(V×d)</span><br>
+      <span class="dim">随梯度下降逐步优化</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STEP 4 ===== -->
+<div class="step-view" id="step-4">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 4</span>Seq2Seq 编解码网络</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-secondary" id="s4-btn-encode" onclick="s4SetPhase('encode')">① 编码</button>
+      <button class="btn btn-secondary" id="s4-btn-compress" onclick="s4SetPhase('compress')">② 压缩</button>
+      <button class="btn btn-secondary" id="s4-btn-decode" onclick="s4SetPhase('decode')">③ 解码</button>
+      <button class="btn btn-primary" id="s4-btn-auto" onclick="s4AutoPlay()">▶ 自动播放</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-secondary" style="font-size:.78rem" onclick="s4SetExample(0)">例1: I love cats</button>
+      <button class="btn btn-secondary" style="font-size:.78rem" onclick="s4SetExample(1)">例2: Good morning</button>
+      <button class="btn btn-secondary" style="font-size:.78rem" onclick="s4SetExample(2)">例3: Deep learning</button>
+    </div>
+    <canvas id="c4" style="width:100%;max-width:580px;height:340px"></canvas>
+    <div id="s4-desc" style="margin-top:10px;padding:10px;background:#f0f9ff;border-radius:8px;font-size:.83rem;color:#0369a1;min-height:40px"></div>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">Context Vector 瓶颈</div>
+    <div class="card">
+      <h3>🏗️ Encoder-Decoder 架构</h3>
+      <ul>
+        <li><b>Encoder</b>：逐词读取源语言，最终隐藏状态 → Context Vector</li>
+        <li><b>Context Vector</b>：压缩整句语义（固定维度瓶颈）</li>
+        <li><b>Decoder</b>：以 Context Vector 为初始状态，逐词生成目标语言</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🚨 瓶颈问题</h3>
+      <p>无论句子多长，都要压缩进<b>固定大小</b>的向量！</p>
+      <ul>
+        <li>短句（3词）→ 信息压缩充分 ✅</li>
+        <li>长句（20词）→ 信息丢失严重 ❌</li>
+        <li>句子越长，BLEU 分数下降越明显</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>💡 解决方案：Attention</h3>
+      <p>解码每个词时，让 Decoder <b>直接查看所有 Encoder 隐藏状态</b>，动态加权聚焦相关部分。详见 Step 5。</p>
+    </div>
+    <div class="formula">
+      h_t = <span class="hl">LSTM(x_t, h_{t-1})</span><br>
+      c = <span class="hl">h_T</span>  <span class="dim"># context vector</span><br>
+      y_t = <span class="hl">LSTM(y_{t-1}, c)</span>  <span class="dim"># decode</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STEP 5 ===== -->
+<div class="step-view" id="step-5">
+  <div class="viz-panel">
+    <div class="panel-title"><span>Step 5</span>长句翻译瓶颈</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-secondary" id="s5-btn-no-attn" onclick="s5SetMode('no')">❌ 无 Attention</button>
+      <button class="btn btn-secondary" id="s5-btn-attn" onclick="s5SetMode('attn')">✅ 有 Attention</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:.82rem;color:#475569;font-weight:600">句子长度：<span id="s5-len-label">8</span> 词</label>
+      <input type="range" id="s5-slider" min="1" max="20" value="8" oninput="s5Update()">
+    </div>
+    <div class="bar-group" id="s5-bars">
+      <div class="bar-row">
+        <div class="bar-label">短句 (3词)<br><span style="font-size:.72rem">seq2seq</span></div>
+        <div class="bar-track">
+          <div class="bar-fill bar-good" id="bar-short" style="width:92%">92%</div>
+        </div>
+        <span style="font-size:1rem">✅</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" id="s5-cur-label">当前句 (8词)<br><span style="font-size:.72rem" id="s5-method-label">无Attention</span></div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-cur" style="width:70%">70%</div>
+        </div>
+        <span style="font-size:1rem" id="s5-cur-icon">⚠️</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">长句 (15词)<br><span style="font-size:.72rem">无Attention</span></div>
+        <div class="bar-track">
+          <div class="bar-fill bar-bad" id="bar-long" style="width:42%">42%</div>
+        </div>
+        <span style="font-size:1rem">❌</span>
+      </div>
+      <div class="bar-row" id="bar-attn-row" style="display:none">
+        <div class="bar-label">当前句 (有Attn)<br><span style="font-size:.72rem">Attention</span></div>
+        <div class="bar-track">
+          <div class="bar-fill bar-good" id="bar-attn" style="width:88%">88%</div>
+        </div>
+        <span style="font-size:1rem">✅</span>
+      </div>
+    </div>
+    <!-- Attention heatmap -->
+    <div id="s5-heatmap-wrap" style="display:none;margin-top:16px">
+      <p style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:6px">Attention 权重热图（解码"爱"时）</p>
+      <canvas id="c5-heat" style="width:100%;max-width:420px;height:80px;border-radius:8px"></canvas>
+    </div>
+    <div id="s5-note" style="margin-top:14px;padding:10px;background:#fef3c7;border-radius:8px;font-size:.82rem;color:#92400e"></div>
+  </div>
+  <div class="info-panel">
+    <div class="panel-title">Seq2Seq 应用与 Transformer</div>
+    <div class="card">
+      <h3>🌍 Seq2Seq 的应用</h3>
+      <ul>
+        <li>机器翻译（第一大应用）</li>
+        <li>文本摘要生成</li>
+        <li>语音识别 ASR</li>
+        <li>图像描述（Image Captioning）</li>
+        <li>对话系统 / 问答系统</li>
+        <li>代码生成（如 Copilot 前身）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📅 Transformer 取代 RNN 的历史</h3>
+      <ul>
+        <li><b>2014</b> Seq2Seq + LSTM (Sutskever et al.)</li>
+        <li><b>2015</b> Attention Mechanism (Bahdanau)</li>
+        <li><b>2017</b> Transformer (Vaswani, "Attention is All You Need")</li>
+        <li><b>2018</b> BERT / GPT-1</li>
+        <li><b>2020+</b> GPT-3/4, LLaMA — 纯 Transformer</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔮 Attention 公式预告</h3>
+      <div class="formula" style="font-size:.78rem">
+        Attn(Q,K,V) = <span class="hl">softmax(QKᵀ/√d) · V</span><br>
+        <span class="dim">Q=查询, K=键, V=值</span><br>
+        <span class="hl">动态聚焦</span> → 无瓶颈问题 ✅
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div id="tooltip" class="tooltip" style="display:none"></div>
+
+<script>
+// ─────────────────────────────────────────────────
+// GLOBAL STATE
+// ─────────────────────────────────────────────────
+let currentStep = 0;
+const STEPS = 6;
+
+// ─────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────
+function buildIndicator(){
+  const ind = document.getElementById('stepIndicator');
+  for(let i=0;i<STEPS;i++){
+    const d=document.createElement('div');
+    d.className='step-dot'+(i===0?' active':'');
+    d.id='dot-'+i;
+    d.onclick=()=>goStep(i);
+    d.style.cursor='pointer';
+    ind.appendChild(d);
+  }
+}
+
+function goStep(n){
+  // hide old
+  document.querySelectorAll('.step-view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.step-dot').forEach(el=>el.classList.remove('active'));
+  // show new
+  document.getElementById('step-'+n).classList.add('active');
+  document.querySelectorAll('.nav-btn')[n].classList.add('active');
+  document.getElementById('dot-'+n).classList.add('active');
+  currentStep=n;
+  initStep(n);
+}
+
+function initStep(n){
+  if(n===0) s0Init();
+  if(n===1) s1Init();
+  if(n===2) s2Init();
+  if(n===3) s3Init();
+  if(n===4) s4Init();
+  if(n===5) s5Init();
+}
+
+// ─────────────────────────────────────────────────
+// STEP 0 — One-hot vs Embedding
+// ─────────────────────────────────────────────────
+function s0Init(){
+  document.querySelectorAll('#onehot-table tr[data-word], #emb-table tr[data-word]').forEach(row=>{
+    row.onclick=function(){ s0HighlightWord(parseInt(this.dataset.word)); };
+    row.style.cursor='pointer';
+  });
+}
+
+function s0HighlightWord(wi){
+  document.querySelectorAll('#onehot-table tr[data-word]').forEach(r=>{
+    r.classList.toggle('hl-row', parseInt(r.dataset.word)===wi);
+  });
+  document.querySelectorAll('#emb-table tr[data-word]').forEach(r=>{
+    r.classList.toggle('hl-row', parseInt(r.dataset.word)===wi);
+  });
+}
+
+// ─────────────────────────────────────────────────
+// STEP 1 — Embedding Space (Canvas)
+// ─────────────────────────────────────────────────
+const S1_WORDS = [
+  {label:'猫', x:.18, y:.22, cat:'animal', emoji:'🐱'},
+  {label:'狗', x:.25, y:.30, cat:'animal', emoji:'🐶'},
+  {label:'鸟', x:.14, y:.38, cat:'animal', emoji:'🐦'},
+  {label:'苹果', x:.72, y:.18, cat:'food', emoji:'🍎'},
+  {label:'香蕉', x:.80, y:.28, cat:'food', emoji:'🍌'},
+  {label:'面包', x:.65, y:.32, cat:'food', emoji:'🍞'},
+  {label:'汽车', x:.55, y:.72, cat:'transport', emoji:'🚗'},
+  {label:'飞机', x:.68, y:.65, cat:'transport', emoji:'✈️'},
+  {label:'船', x:.48, y:.80, cat:'transport', emoji:'🚢'},
+  // king/queen/man/woman hidden cluster
+  {label:'国王', x:.28, y:.60, cat:'animal', emoji:'👑'},
+];
+const S1_EXTRA = [
+  {label:'女王', x:.36, y:.55, cat:'animal', emoji:'👸'},
+  {label:'男人', x:.22, y:.68, cat:'animal', emoji:'👨'},
+  {label:'女人', x:.30, y:.74, cat:'animal', emoji:'👩'},
+];
+const CAT_COLORS = {animal:'#34d399', food:'#fbbf24', transport:'#60a5fa'};
+let s1Canvas, s1Ctx, s1Hover=-1, s1AnalogMode=false, s1AllWords=[];
+let s1AnimFrame=null;
+
+function s1Init(){
+  s1Canvas = document.getElementById('c1');
+  s1Ctx = s1Canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  const rect = s1Canvas.getBoundingClientRect();
+  s1Canvas.width = rect.width*dpr;
+  s1Canvas.height = rect.height*dpr;
+  s1Ctx.scale(dpr,dpr);
+  s1AllWords = [...S1_WORDS];
+  s1AnalogMode = false;
+  s1DrawAll();
+  s1Canvas.onmousemove = s1OnMouse;
+  s1Canvas.onmouseleave = ()=>{s1Hover=-1;s1DrawAll();};
+}
+
+function s1DrawAll(){
+  const ctx=s1Ctx, W=s1Canvas.getBoundingClientRect().width, H=s1Canvas.getBoundingClientRect().height;
+  ctx.clearRect(0,0,W,H);
+  // bg
+  const grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#0d1117');grad.addColorStop(1,'#161b22');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    ctx.beginPath();ctx.moveTo(i/10*W,0);ctx.lineTo(i/10*W,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i/10*H);ctx.lineTo(W,i/10*H);ctx.stroke();
+  }
+  // axes labels
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='11px sans-serif';
+  ctx.fillText('e₁ →',W-32,H-8);
+  ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('e₂ ↑',0,0);ctx.restore();
+
+  // analogy arrows
+  if(s1AnalogMode){
+    const extras = S1_EXTRA;
+    const allW = [...s1AllWords,...extras];
+    const findW = (l)=>allW.find(w=>w.label===l);
+    const king=findW('国王'), queen=findW('女王'), man=findW('男人'), woman=findW('女人');
+    if(king&&queen&&man&&woman){
+      drawArrow(ctx,king.x*W,king.y*H,man.x*W,man.y*H,'rgba(239,68,68,.6)','-man');
+      drawArrow(ctx,man.x*W,man.y*H,woman.x*W,woman.y*H,'rgba(52,211,153,.6)','+woman');
+      // king-man+woman → queen
+      ctx.strokeStyle='#f6d860';ctx.lineWidth=2;ctx.setLineDash([4,4]);
+      ctx.beginPath();ctx.moveTo(king.x*W,king.y*H);ctx.lineTo(queen.x*W,queen.y*H);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // draw extra words
+    extras.forEach(w=>{
+      ctx.beginPath();ctx.arc(w.x*W,w.y*H,8,0,Math.PI*2);
+      ctx.fillStyle='rgba(246,216,96,.8)';ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+      ctx.fillText(w.emoji,w.x*W,w.y*H+4);
+      ctx.fillStyle='#f6d860';ctx.font='bold 11px sans-serif';
+      ctx.fillText(w.label,w.x*W,w.y*H-12);
+    });
+  }
+
+  // hover neighbors
+  if(s1Hover>=0){
+    const hw=s1AllWords[s1Hover];
+    // find 2 nearest
+    const dists=s1AllWords.map((w,i)=>({i,d:Math.hypot(w.x-hw.x,w.y-hw.y)}));
+    dists.sort((a,b)=>a.d-b.d);
+    const near=dists.slice(1,3);
+    near.forEach(n=>{
+      const nw=s1AllWords[n.i];
+      ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(hw.x*W,hw.y*H);ctx.lineTo(nw.x*W,nw.y*H);ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  // words
+  s1AllWords.forEach((w,i)=>{
+    const cx=w.x*W, cy=w.y*H;
+    const isHover=(i===s1Hover);
+    const r=isHover?14:10;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=isHover?'#fff':(CAT_COLORS[w.cat]||'#94a3b8');
+    ctx.fill();
+    if(isHover){ctx.strokeStyle=CAT_COLORS[w.cat]||'#667eea';ctx.lineWidth=3;ctx.stroke();}
+    ctx.fillStyle=isHover?'#1a1a2e':'#fff';
+    ctx.font=`bold ${isHover?13:11}px sans-serif`;ctx.textAlign='center';
+    ctx.fillText(w.emoji,cx,cy+4);
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.font=`${isHover?'bold ':''}11px sans-serif`;
+    ctx.fillText(w.label,cx,cy-r-4);
+  });
+}
+
+function drawArrow(ctx,x1,y1,x2,y2,color,label){
+  const ang=Math.atan2(y2-y1,x2-x1);
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  // arrowhead
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-10*Math.cos(ang-0.4),y2-10*Math.sin(ang-0.4));
+  ctx.lineTo(x2-10*Math.cos(ang+0.4),y2-10*Math.sin(ang+0.4));
+  ctx.closePath();ctx.fillStyle=color;ctx.fill();
+  if(label){
+    ctx.fillStyle=color;ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText(label,(x1+x2)/2+8,(y1+y2)/2-6);
+  }
+}
+
+function s1OnMouse(e){
+  const rect=s1Canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left), my=(e.clientY-rect.top);
+  const W=rect.width, H=rect.height;
+  let found=-1;
+  s1AllWords.forEach((w,i)=>{
+    if(Math.hypot(w.x*W-mx,w.y*H-my)<16) found=i;
+  });
+  s1Hover=found;s1DrawAll();
+}
+
+function s1Analogy(){
+  s1AnalogMode=!s1AnalogMode;
+  document.getElementById('btn-analogy').classList.toggle('btn-active',s1AnalogMode);
+  s1DrawAll();
+}
+
+function s1ShowCluster(cat){
+  const W=s1Canvas.getBoundingClientRect().width, H=s1Canvas.getBoundingClientRect().height;
+  s1AllWords = [...S1_WORDS];
+  s1AnalogMode=false;
+  // flash highlight
+  const ctx=s1Ctx;
+  s1AllWords.forEach(w=>{
+    if(w.cat===cat){
+      const cx=w.x*W,cy=w.y*H;
+      ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.15)';ctx.fill();
+    }
+  });
+  s1DrawAll();
+  // temporary pulse
+  s1AllWords.forEach((w,i)=>{
+    if(w.cat===cat) s1Hover=i;
+  });
+  setTimeout(()=>{s1Hover=-1;s1DrawAll();},800);
+}
+
+function s1ResetView(){
+  s1AllWords=[...S1_WORDS];
+  s1AnalogMode=false;
+  s1Hover=-1;
+  document.getElementById('btn-analogy').classList.remove('btn-active');
+  s1DrawAll();
+}
+
+// ─────────────────────────────────────────────────
+// STEP 2 — Skip-gram
+// ─────────────────────────────────────────────────
+const S2_WORDS = ['The','cat','sat','on','the','mat'];
+let s2Center = 1, s2WinSize = 2, s2NetCanvas, s2NetCtx, s2LossCanvas, s2LossCtx;
+let s2LossData = [];
+
+function s2Init(){
+  s2Center=1;
+  s2LossData=[];
+  for(let i=0;i<60;i++) s2LossData.push(2.8*Math.exp(-i/15)+0.3+Math.random()*.12);
+  s2RenderSentence();
+  s2RenderPairs();
+
+  s2NetCanvas=document.getElementById('net-canvas');
+  s2NetCtx=s2NetCanvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const r=s2NetCanvas.getBoundingClientRect();
+  s2NetCanvas.width=r.width*dpr; s2NetCanvas.height=r.height*dpr;
+  s2NetCtx.scale(dpr,dpr);
+  s2DrawNetwork();
+
+  s2LossCanvas=document.getElementById('loss-canvas');
+  s2LossCtx=s2LossCanvas.getContext('2d');
+  const r2=s2LossCanvas.getBoundingClientRect();
+  s2LossCanvas.width=r2.width*dpr; s2LossCanvas.height=r2.height*dpr;
+  s2LossCtx.scale(dpr,dpr);
+  s2DrawLoss(0);
+}
+
+function s2RenderSentence(){
+  const div=document.getElementById('s2-sentence');
+  div.innerHTML='';
+  const lo=Math.max(0,s2Center-s2WinSize), hi=Math.min(S2_WORDS.length-1,s2Center+s2WinSize);
+  S2_WORDS.forEach((w,i)=>{
+    const chip=document.createElement('span');
+    chip.className='word-chip';
+    chip.textContent=w;
+    if(i===s2Center) chip.classList.add('center');
+    else if(i>=lo&&i<=hi) chip.classList.add('context');
+    else chip.classList.add('inactive');
+    div.appendChild(chip);
+  });
+}
+
+function s2RenderPairs(){
+  const ul=document.getElementById('s2-pairs');
+  ul.innerHTML='';
+  const lo=Math.max(0,s2Center-s2WinSize), hi=Math.min(S2_WORDS.length-1,s2Center+s2WinSize);
+  for(let i=lo;i<=hi;i++){
+    if(i===s2Center) continue;
+    const li=document.createElement('li');
+    const pin=document.createElement('span');
+    pin.className='pin';pin.style.background='#667eea';
+    const colors=['#f59e0b','#f97316','#ef4444','#a78bfa'];
+    pin.style.background=colors[(i+s2Center)%4];
+    li.appendChild(pin);
+    li.innerHTML+=`<b>${S2_WORDS[s2Center]}</b> → <span style="color:#667eea">${S2_WORDS[i]}</span>`;
+    ul.appendChild(li);
+  }
+}
+
+function s2MoveWindow(){
+  s2Center=(s2Center+1)%(S2_WORDS.length);
+  s2RenderSentence();
+  s2RenderPairs();
+  // animate loss
+  const step=s2Center*8;
+  s2DrawLoss(step);
+}
+
+function s2Reset(){
+  s2Center=1;
+  s2RenderSentence();
+  s2RenderPairs();
+  s2DrawLoss(0);
+}
+
+function s2DrawNetwork(){
+  const ctx=s2NetCtx, W=s2NetCanvas.getBoundingClientRect().width, H=s2NetCanvas.getBoundingClientRect().height;
+  ctx.clearRect(0,0,W,H);
+  const layers=[
+    {label:'One-hot', nodes:['x₁','x₂','...','xᵥ'], color:'#94a3b8', y:H*.15},
+    {label:'嵌入层 (d维)', nodes:['e₁','e₂','e₃'], color:'#667eea', y:H*.5},
+    {label:'Softmax', nodes:['p₁','p₂','...','pᵥ'], color:'#34d399', y:H*.85},
+  ];
+  const nodeR=14;
+  layers.forEach((layer,li)=>{
+    const n=layer.nodes.length;
+    layer.nodes.forEach((label,ni)=>{
+      const cx=(ni+0.5)*(W/(n)), cy=layer.y;
+      // draw connections to next layer
+      if(li<layers.length-1){
+        const nl=layers[li+1];
+        nl.nodes.forEach((_,nni)=>{
+          const nx=(nni+0.5)*(W/nl.nodes.length), ny=nl.y;
+          ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(nx,ny);ctx.stroke();
+        });
+      }
+      ctx.beginPath();ctx.arc(cx,cy,nodeR,0,Math.PI*2);
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,nodeR);
+      g.addColorStop(0,layer.color+'cc');g.addColorStop(1,layer.color+'44');
+      ctx.fillStyle=g;ctx.fill();
+      ctx.strokeStyle=layer.color;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='bold 9px sans-serif';ctx.textAlign='center';
+      ctx.fillText(label,cx,cy+3);
+    });
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='10px sans-serif';ctx.textAlign='left';
+    ctx.fillText(layer.label,4,layer.y+4);
+  });
+}
+
+function s2DrawLoss(step){
+  const ctx=s2LossCtx, W=s2LossCanvas.getBoundingClientRect().width, H=s2LossCanvas.getBoundingClientRect().height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+  const pad=16;
+  const maxL=3.5, minL=0;
+  const toY=(v)=>pad+(H-2*pad)*(1-(v-minL)/(maxL-minL));
+  const toX=(i)=>pad+(W-2*pad)*(i/(s2LossData.length-1));
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  [0.5,1,1.5,2,2.5,3].forEach(v=>{
+    ctx.beginPath();ctx.moveTo(pad,toY(v));ctx.lineTo(W-pad,toY(v));ctx.stroke();
+  });
+  // gradient fill
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(102,126,234,.4)');grad.addColorStop(1,'rgba(102,126,234,0)');
+  ctx.beginPath();ctx.moveTo(toX(0),toY(s2LossData[0]));
+  s2LossData.forEach((v,i)=>ctx.lineTo(toX(i),toY(v)));
+  ctx.lineTo(toX(s2LossData.length-1),H);ctx.lineTo(toX(0),H);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+  // line
+  ctx.strokeStyle='#667eea';ctx.lineWidth=2;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(toX(0),toY(s2LossData[0]));
+  s2LossData.forEach((v,i)=>ctx.lineTo(toX(i),toY(v)));
+  ctx.stroke();
+  // current step marker
+  if(step<s2LossData.length){
+    const cx=toX(step), cy=toY(s2LossData[step]);
+    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);
+    ctx.fillStyle='#f6d860';ctx.fill();
+  }
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='10px sans-serif';
+  ctx.fillText('Loss',pad,pad-3);
+  ctx.fillText('步数 →',W-38,H-3);
+}
+
+// ─────────────────────────────────────────────────
+// STEP 3 — Training Animation
+// ─────────────────────────────────────────────────
+const S3_WORDS_DEF = [
+  // [初始x,初始y, 目标x, 目标y, 类别]
+  {label:'猫',emoji:'🐱',cat:'animal', sx:.22,sy:.28, tx:.18,ty:.22},
+  {label:'狗',emoji:'🐶',cat:'animal', sx:.65,sy:.12, tx:.26,ty:.30},
+  {label:'鸟',emoji:'🐦',cat:'animal', sx:.38,sy:.55, tx:.14,ty:.38},
+  {label:'虎',emoji:'🐯',cat:'animal', sx:.82,sy:.40, tx:.20,ty:.46},
+  {label:'苹果',emoji:'🍎',cat:'food',  sx:.10,sy:.70, tx:.72,ty:.18},
+  {label:'香蕉',emoji:'🍌',cat:'food',  sx:.50,sy:.85, tx:.80,ty:.28},
+  {label:'面包',emoji:'🍞',cat:'food',  sx:.75,sy:.72, tx:.65,ty:.32},
+  {label:'汽车',emoji:'🚗',cat:'transport',sx:.30,sy:.15,tx:.55,ty:.72},
+  {label:'飞机',emoji:'✈️',cat:'transport',sx:.90,sy:.60,tx:.68,ty:.65},
+  {label:'船',emoji:'🚢',cat:'transport',sx:.15,sy:.90,tx:.48,ty:.80},
+];
+let s3Canvas,s3Ctx,s3Step=0,s3AnimId=null,s3Running=false;
+
+function s3Init(){
+  s3Canvas=document.getElementById('c3');
+  s3Ctx=s3Canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=s3Canvas.getBoundingClientRect();
+  s3Canvas.width=rect.width*dpr;s3Canvas.height=rect.height*dpr;
+  s3Ctx.scale(dpr,dpr);
+  s3Step=0;
+  document.getElementById('s3-slider').value=0;
+  document.getElementById('s3-step-label').textContent='步数: 0';
+  document.getElementById('s3-progress').style.width='0%';
+  s3Draw(0);
+}
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function easeInOut(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+function s3Draw(step){
+  const ctx=s3Ctx, W=s3Canvas.getBoundingClientRect().width, H=s3Canvas.getBoundingClientRect().height;
+  const t=easeInOut(step/100);
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#0d1117');bg.addColorStop(1,'#161b22');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    ctx.beginPath();ctx.moveTo(i/10*W,0);ctx.lineTo(i/10*W,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i/10*H);ctx.lineTo(W,i/10*H);ctx.stroke();
+  }
+
+  // cluster halos at end
+  if(t>0.4){
+    const alpha=(t-0.4)/0.6;
+    const clusters={animal:{x:.2,y:.34,c:'#34d399'},food:{x:.72,y:.26,c:'#fbbf24'},transport:{x:.57,y:.72,c:'#60a5fa'}};
+    Object.values(clusters).forEach(cl=>{
+      const grd=ctx.createRadialGradient(cl.x*W,cl.y*H,0,cl.x*W,cl.y*H,80);
+      grd.addColorStop(0,cl.c+'44');grd.addColorStop(1,'transparent');
+      ctx.globalAlpha=alpha*0.5;
+      ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+      ctx.globalAlpha=1;
+    });
+  }
+
+  S3_WORDS_DEF.forEach(w=>{
+    const cx=lerp(w.sx,w.tx,t)*W;
+    const cy=lerp(w.sy,w.ty,t)*H;
+    // color fade from gray to category
+    const catColors={animal:'#34d399',food:'#fbbf24',transport:'#60a5fa'};
+    const base='#64748b', target=catColors[w.cat];
+    const color=lerpColor(base,target,t);
+    ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);
+    ctx.fillStyle=color+'cc';ctx.fill();
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText(w.emoji,cx,cy+4);
+    ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='10px sans-serif';
+    ctx.fillText(w.label,cx,cy-14);
+  });
+  // title
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='11px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`训练步数: ${Math.round(step)}`,10,18);
+}
+
+function lerpColor(a,b,t){
+  const ar=parseInt(a.slice(1,3),16),ag=parseInt(a.slice(3,5),16),ab=parseInt(a.slice(5,7),16);
+  const br=parseInt(b.slice(1,3),16),bg=parseInt(b.slice(3,5),16),bb=parseInt(b.slice(5,7),16);
+  const r=Math.round(lerp(ar,br,t)),g=Math.round(lerp(ag,bg,t)),bv=Math.round(lerp(ab,bb,t));
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bv.toString(16).padStart(2,'0')}`;
+}
+
+function s3SliderMove(v){
+  if(s3AnimId){cancelAnimationFrame(s3AnimId);s3AnimId=null;s3Running=false;}
+  s3Step=parseInt(v);
+  document.getElementById('s3-step-label').textContent=`步数: ${s3Step}`;
+  document.getElementById('s3-progress').style.width=s3Step+'%';
+  s3Draw(s3Step);
+}
+
+function s3StartTrain(){
+  if(s3Running) return;
+  s3Running=true;
+  s3Step=0;
+  document.getElementById('s3-train-btn').textContent='⏳ 训练中...';
+  let start=null;
+  function frame(ts){
+    if(!start) start=ts;
+    const elapsed=ts-start;
+    s3Step=Math.min(100,elapsed/30);
+    document.getElementById('s3-slider').value=s3Step;
+    document.getElementById('s3-step-label').textContent=`步数: ${Math.round(s3Step)}`;
+    document.getElementById('s3-progress').style.width=s3Step+'%';
+    s3Draw(s3Step);
+    if(s3Step<100) s3AnimId=requestAnimationFrame(frame);
+    else{s3Running=false;document.getElementById('s3-train-btn').textContent='▶ 再次训练';}
+  }
+  s3AnimId=requestAnimationFrame(frame);
+}
+
+function s3Reset(){
+  if(s3AnimId){cancelAnimationFrame(s3AnimId);s3AnimId=null;}
+  s3Running=false;
+  s3Step=0;
+  document.getElementById('s3-slider').value=0;
+  document.getElementById('s3-step-label').textContent='步数: 0';
+  document.getElementById('s3-progress').style.width='0%';
+  document.getElementById('s3-train-btn').textContent='▶ 开始训练';
+  s3Draw(0);
+}
+
+// ─────────────────────────────────────────────────
+// STEP 4 — Seq2Seq
+// ─────────────────────────────────────────────────
+const S4_EXAMPLES=[
+  {src:['I','love','cats'], tgt:['我','爱','猫'], en:'I love cats', zh:'我 爱 猫'},
+  {src:['Good','morning'], tgt:['早','上','好'], en:'Good morning', zh:'早上好'},
+  {src:['Deep','learning'], tgt:['深度','学习'], en:'Deep learning', zh:'深度 学习'},
+];
+let s4Canvas,s4Ctx,s4Phase='encode',s4ExIdx=0,s4AutoId=null,s4EncodeStep=0,s4DecodeStep=0;
+let s4AnimId=null;
+
+function s4Init(){
+  s4Canvas=document.getElementById('c4');
+  s4Ctx=s4Canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=s4Canvas.getBoundingClientRect();
+  s4Canvas.width=rect.width*dpr;s4Canvas.height=rect.height*dpr;
+  s4Ctx.scale(dpr,dpr);
+  s4Phase='encode';s4EncodeStep=0;s4DecodeStep=0;
+  s4UpdateButtons();
+  s4DrawScene();
+  document.getElementById('s4-desc').textContent='点击「编码」开始，观察英语词逐步流入 LSTM Encoder。';
+}
+
+function s4SetExample(i){
+  s4ExIdx=i;s4Phase='encode';s4EncodeStep=0;s4DecodeStep=0;
+  s4UpdateButtons();s4DrawScene();
+}
+
+function s4SetPhase(p){
+  s4Phase=p;
+  if(p==='encode') s4EncodeStep=0;
+  if(p==='decode') s4DecodeStep=0;
+  s4UpdateButtons();
+  s4AnimPhase();
+}
+
+function s4UpdateButtons(){
+  ['encode','compress','decode'].forEach(p=>{
+    document.getElementById('s4-btn-'+p).classList.toggle('btn-active',s4Phase===p);
+  });
+}
+
+function s4AnimPhase(){
+  if(s4AnimId) cancelAnimationFrame(s4AnimId);
+  const ex=S4_EXAMPLES[s4ExIdx];
+  if(s4Phase==='encode'){
+    let step=0;
+    document.getElementById('s4-desc').textContent='🔵 Encoder 读取源语言词，更新 LSTM 隐藏状态...';
+    function tick(){
+      s4EncodeStep=step;
+      s4DrawScene();
+      if(step<ex.src.length) step++;
+      else return;
+      s4AnimId=setTimeout(()=>requestAnimationFrame(tick),600);
+    }
+    tick();
+  } else if(s4Phase==='compress'){
+    document.getElementById('s4-desc').textContent='🟡 Context Vector 压缩整句语义——这是信息瓶颈所在！';
+    s4DrawScene();
+  } else if(s4Phase==='decode'){
+    let step=0;
+    document.getElementById('s4-desc').textContent='🟢 Decoder 以 Context Vector 为初始状态，逐词生成目标语言...';
+    function tick(){
+      s4DecodeStep=step;
+      s4DrawScene();
+      if(step<ex.tgt.length) step++;
+      else return;
+      s4AnimId=setTimeout(()=>requestAnimationFrame(tick),700);
+    }
+    tick();
+  }
+}
+
+function s4AutoPlay(){
+  s4Phase='encode';s4EncodeStep=0;s4DecodeStep=0;
+  s4UpdateButtons();
+  const sequence=['encode','compress','decode'];
+  let idx=0;
+  function nextPhase(){
+    if(idx>=sequence.length) return;
+    s4Phase=sequence[idx++];
+    s4UpdateButtons();
+    s4AnimPhase();
+    const ex=S4_EXAMPLES[s4ExIdx];
+    const dur=s4Phase==='encode'?(ex.src.length+1)*700:s4Phase==='compress'?1200:(ex.tgt.length+1)*800;
+    s4AutoId=setTimeout(nextPhase,dur);
+  }
+  nextPhase();
+}
+
+function s4DrawScene(){
+  const ctx=s4Ctx, W=s4Canvas.getBoundingClientRect().width, H=s4Canvas.getBoundingClientRect().height;
+  const ex=S4_EXAMPLES[s4ExIdx];
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#0d1117');bg.addColorStop(1,'#0f172a');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  const midX=W*.5, midY=H*.5;
+  const encBox={x:W*.04,y:H*.3,w:W*.3,h:H*.4};
+  const decBox={x:W*.66,y:H*.3,w:W*.3,h:H*.4};
+  const ctxBox={x:W*.4,y:H*.35,w:W*.2,h:H*.3};
+
+  // draw encoder
+  const encActive=s4Phase==='encode';
+  ctx.strokeStyle=encActive?'#60a5fa':'rgba(96,165,250,.4)';ctx.lineWidth=2;
+  ctx.fillStyle=encActive?'rgba(96,165,250,.12)':'rgba(96,165,250,.05)';
+  roundRect(ctx,encBox.x,encBox.y,encBox.w,encBox.h,10);
+  ctx.fillStyle=encActive?'#60a5fa':'rgba(96,165,250,.5)';
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+  ctx.fillText('LSTM Encoder',encBox.x+encBox.w/2,encBox.y+22);
+
+  // encoder words
+  ex.src.forEach((w,i)=>{
+    const active=encActive&&i<s4EncodeStep;
+    const cy=encBox.y+50+(i+1)*32;
+    ctx.fillStyle=active?'#60a5fa':'rgba(96,165,250,.3)';
+    ctx.font=active?'bold 12px sans-serif':'12px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(w,encBox.x+encBox.w/2,cy);
+    if(active){
+      ctx.strokeStyle='rgba(96,165,250,.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(encBox.x+encBox.w/2,cy);
+      ctx.lineTo(ctxBox.x,ctxBox.y+ctxBox.h/2);ctx.stroke();
+    }
+  });
+
+  // context vector
+  const ctxActive=s4Phase==='compress'||s4Phase==='decode';
+  ctx.strokeStyle=ctxActive?'#f6d860':'rgba(246,216,96,.3)';ctx.lineWidth=2.5;
+  ctx.fillStyle=ctxActive?'rgba(246,216,96,.15)':'rgba(246,216,96,.05)';
+  roundRect(ctx,ctxBox.x,ctxBox.y,ctxBox.w,ctxBox.h,8);
+  ctx.fillStyle=ctxActive?'#f6d860':'rgba(246,216,96,.4)';
+  ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+  ctx.fillText('Context',ctxBox.x+ctxBox.w/2,ctxBox.y+18);
+  ctx.font='bold 10px sans-serif';
+  ctx.fillText('Vector',ctxBox.x+ctxBox.w/2,ctxBox.y+32);
+  // colored vector cells
+  const colors=['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6'];
+  const cellH=(ctxBox.h-50)/6;
+  if(ctxActive){
+    colors.forEach((c,i)=>{
+      ctx.fillStyle=c+'aa';
+      ctx.fillRect(ctxBox.x+8,ctxBox.y+40+i*cellH,ctxBox.w-16,cellH-2);
+    });
+  }
+
+  // arrow enc→ctx
+  if(s4Phase!=='encode'||s4EncodeStep>=ex.src.length){
+    drawArrowCtx(ctx,encBox.x+encBox.w,midY,ctxBox.x,midY,'rgba(255,255,255,.3)');
+  }
+
+  // draw decoder
+  const decActive=s4Phase==='decode';
+  ctx.strokeStyle=decActive?'#34d399':'rgba(52,211,153,.4)';ctx.lineWidth=2;
+  ctx.fillStyle=decActive?'rgba(52,211,153,.12)':'rgba(52,211,153,.05)';
+  roundRect(ctx,decBox.x,decBox.y,decBox.w,decBox.h,10);
+  ctx.fillStyle=decActive?'#34d399':'rgba(52,211,153,.5)';
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+  ctx.fillText('LSTM Decoder',decBox.x+decBox.w/2,decBox.y+22);
+
+  // decoder words
+  ex.tgt.forEach((w,i)=>{
+    const active=decActive&&i<s4DecodeStep;
+    const cy=decBox.y+50+(i+1)*32;
+    ctx.fillStyle=active?'#34d399':'rgba(52,211,153,.3)';
+    ctx.font=active?'bold 13px sans-serif':'12px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(w,decBox.x+decBox.w/2,cy);
+    if(active){
+      ctx.strokeStyle='rgba(52,211,153,.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(ctxBox.x+ctxBox.w,ctxBox.y+ctxBox.h/2);
+      ctx.lineTo(decBox.x+decBox.w/2,cy);ctx.stroke();
+    }
+  });
+
+  // arrow ctx→dec
+  if(decActive||s4Phase==='compress'){
+    drawArrowCtx(ctx,ctxBox.x+ctxBox.w,midY,decBox.x,midY,'rgba(255,255,255,.3)');
+  }
+
+  // labels top
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillText(ex.en,encBox.x+encBox.w/2,encBox.y-8);
+  ctx.fillText(ex.zh,decBox.x+decBox.w/2,decBox.y-8);
+}
+
+function drawArrowCtx(ctx,x1,y1,x2,y2,color){
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const ang=Math.atan2(y2-y1,x2-x1);
+  ctx.fillStyle=color;ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-8*Math.cos(ang-.4),y2-8*Math.sin(ang-.4));
+  ctx.lineTo(x2-8*Math.cos(ang+.4),y2-8*Math.sin(ang+.4));
+  ctx.closePath();ctx.fill();
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();ctx.fill();ctx.stroke();
+}
+
+// ─────────────────────────────────────────────────
+// STEP 5 — Bottleneck
+// ─────────────────────────────────────────────────
+let s5Mode='no';
+
+function s5Init(){
+  s5Mode='no';
+  document.getElementById('s5-slider').value=8;
+  document.getElementById('s5-len-label').textContent=8;
+  s5Update();
+  document.getElementById('s5-heatmap-wrap').style.display='none';
+  document.getElementById('bar-attn-row').style.display='none';
+  s5UpdateBtnStyles();
+  s5UpdateNote(8,'no');
+}
+
+function s5SetMode(m){
+  s5Mode=m;
+  s5UpdateBtnStyles();
+  s5Update();
+}
+
+function s5UpdateBtnStyles(){
+  document.getElementById('s5-btn-no-attn').classList.toggle('btn-active',s5Mode==='no');
+  document.getElementById('s5-btn-attn').classList.toggle('btn-active',s5Mode==='attn');
+}
+
+function s5Update(){
+  const len=parseInt(document.getElementById('s5-slider').value);
+  document.getElementById('s5-len-label').textContent=len;
+  // quality without attention: 92 - len*3.2 (clamped)
+  const qNoAttn=Math.max(20,Math.round(95 - len*3.8));
+  // quality with attention: 92 - len*1.0
+  const qAttn=Math.max(72,Math.round(95 - len*1.2));
+
+  document.getElementById('s5-cur-label').innerHTML=`当前句 (${len}词)<br><span style="font-size:.72rem" id="s5-method-label">${s5Mode==='no'?'无Attention':'有Attention'}</span>`;
+
+  if(s5Mode==='no'){
+    const fill=document.getElementById('bar-cur');
+    fill.style.width=qNoAttn+'%';
+    fill.textContent=qNoAttn+'%';
+    fill.className='bar-fill '+(qNoAttn>70?'bar-ok':'bar-bad');
+    document.getElementById('s5-cur-icon').textContent=qNoAttn>70?'⚠️':'❌';
+    document.getElementById('bar-attn-row').style.display='none';
+    document.getElementById('s5-heatmap-wrap').style.display='none';
+  } else {
+    document.getElementById('bar-attn-row').style.display='flex';
+    const attnFill=document.getElementById('bar-attn');
+    attnFill.style.width=qAttn+'%';attnFill.textContent=qAttn+'%';
+    const noFill=document.getElementById('bar-cur');
+    noFill.style.width=qNoAttn+'%';noFill.textContent=qNoAttn+'%';
+    noFill.className='bar-fill '+(qNoAttn>70?'bar-ok':'bar-bad');
+    document.getElementById('s5-cur-icon').textContent='⚠️';
+    document.getElementById('s5-heatmap-wrap').style.display='block';
+    s5DrawHeatmap(len);
+  }
+  s5UpdateNote(len,s5Mode);
+}
+
+function s5DrawHeatmap(len){
+  const canvas=document.getElementById('c5-heat');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;
+  ctx.scale(dpr,dpr);
+  const W=rect.width,H=rect.height;
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+  const n=Math.min(len,10);
+  const cellW=(W-60)/n,cellH=H-30;
+  // attention weights (mock: peak around middle)
+  const weights=Array.from({length:n},(_, i)=>{
+    const center=n/2;
+    return Math.exp(-Math.pow(i-center,2)/3)+Math.random()*.2;
+  });
+  const sum=weights.reduce((a,b)=>a+b,0);
+  weights.forEach((w,i)=>{
+    const norm=w/sum;
+    const alpha=norm*n;
+    ctx.fillStyle=`rgba(102,126,234,${Math.min(1,alpha)})`;
+    ctx.fillRect(60+i*cellW,5,cellW-2,cellH-10);
+    ctx.fillStyle='rgba(255,255,255,.6)';
+    ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText(`w${i+1}`,60+i*cellW+cellW/2,H-8);
+  });
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='10px sans-serif';ctx.textAlign='right';
+  ctx.fillText('解码"爱"',54,H/2+4);
+}
+
+function s5UpdateNote(len,mode){
+  const note=document.getElementById('s5-note');
+  if(mode==='no'){
+    if(len<=5) note.textContent='✅ 短句时 seq2seq 工作良好，Context Vector 足以压缩全部信息。';
+    else if(len<=10) note.textContent='⚠️ 中等长度句子开始出现信息损失，翻译质量下降。';
+    else note.textContent='❌ 长句时 Context Vector 严重过载，早期词的信息几乎消失，翻译质量大幅下降！';
+  } else {
+    note.textContent=`✅ 加入 Attention 后，Decoder 可直接访问所有 Encoder 隐藏状态，${len} 词句子翻译质量显著提升！Transformer 将此机制推广为 Self-Attention。`;
+  }
+}
+
+// ─────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────
+buildIndicator();
+s0Init();
+
+window.addEventListener('resize',()=>{
+  if(currentStep===1) s1Init();
+  if(currentStep===3) {const v=parseInt(document.getElementById('s3-slider').value);s3Init();s3Draw(v);}
+  if(currentStep===4) s4Init();
+  if(currentStep===2) s2Init();
+});
+</script>
+</body>
+</html>

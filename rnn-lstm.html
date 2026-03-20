@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>序列模型：RNN 与 LSTM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+    min-height: 100vh;
+    color: #e0e0e0;
+  }
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 20px;
+  }
+  .page-header h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea, #764ba2, #f6d860);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+  .page-header p {
+    color: #a0b0d0;
+    font-size: 1.05rem;
+  }
+  /* Nav */
+  .nav-bar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 20px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, rgba(26,26,46,0.97), rgba(22,33,62,0.97));
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(102,126,234,0.2);
+  }
+  .nav-btn {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(102,126,234,0.4);
+    background: transparent;
+    color: #a0b0d0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { border-color: #667eea; color: #667eea; }
+  .nav-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+  }
+  /* Container */
+  .container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 30px 20px 60px;
+  }
+  .step-panel {
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .step-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .step-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  .step-subtitle {
+    color: #8899bb;
+    font-size: 1rem;
+    margin-bottom: 24px;
+  }
+  /* Main layout */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+  /* Viz panel */
+  .viz-panel {
+    background: rgba(255,255,255,0.97);
+    border-radius: 20px;
+    padding: 28px;
+    color: #1a1a2e;
+    min-height: 420px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .viz-panel canvas {
+    border-radius: 10px;
+    display: block;
+  }
+  /* Info panel */
+  .info-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .info-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 22px;
+    backdrop-filter: blur(10px);
+  }
+  .info-card h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f6d860;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .info-card p, .info-card li {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #c0d0e8;
+  }
+  .info-card ul { padding-left: 18px; }
+  .info-card li { margin-bottom: 6px; }
+  /* Formula box */
+  .formula-box {
+    background: #1a1a2e;
+    border: 1px solid rgba(246,216,96,0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #f6d860;
+    text-align: center;
+    line-height: 1.8;
+  }
+  /* Buttons */
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  .btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.25s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(102,126,234,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(102,126,234,0.5); }
+  .btn-secondary {
+    background: rgba(102,126,234,0.15);
+    color: #667eea;
+    border: 1.5px solid rgba(102,126,234,0.4);
+  }
+  .btn-secondary:hover { background: rgba(102,126,234,0.25); }
+  .btn-active {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+  }
+  /* Slider */
+  .slider-wrap {
+    margin: 14px 0;
+  }
+  .slider-wrap label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: #667eea;
+  }
+  /* Tag */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin: 2px;
+  }
+  .tag-blue { background: rgba(102,126,234,0.2); color: #667eea; border: 1px solid rgba(102,126,234,0.4); }
+  .tag-yellow { background: rgba(246,216,96,0.15); color: #f6d860; border: 1px solid rgba(246,216,96,0.3); }
+  .tag-green { background: rgba(72,199,142,0.15); color: #48c78e; border: 1px solid rgba(72,199,142,0.3); }
+  .tag-red { background: rgba(240,80,80,0.15); color: #f05050; border: 1px solid rgba(240,80,80,0.3); }
+  /* Highlight text in info card */
+  .hl { color: #f6d860; font-weight: 700; }
+  .hl-green { color: #48c78e; font-weight: 700; }
+  .hl-blue { color: #667eea; font-weight: 700; }
+  .hl-red { color: #f05050; font-weight: 700; }
+
+  /* Step 0 */
+  .word-flow { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .word-box {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.4s;
+  }
+  .word-box.nn { background: #e8eaf6; color: #3949ab; border: 2px solid #9fa8da; }
+  .word-box.rnn-word { background: #e8f5e9; color: #2e7d32; border: 2px solid #81c784; }
+  .word-box.active-word { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+  .arrow-line {
+    display: flex;
+    align-items: center;
+    font-size: 1.3rem;
+    color: #667eea;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .arrow-line.show { opacity: 1; }
+  .hidden-state-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  .h-box {
+    width: 44px;
+    height: 28px;
+    border-radius: 6px;
+    background: #dde8ff;
+    border: 2px solid #667eea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #3949ab;
+    transition: all 0.4s;
+  }
+  .h-box.filled { background: #667eea; color: #fff; }
+  .use-cases { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+  /* Step 2 gradient bars */
+  .grad-bar-wrap { margin: 14px 0; }
+  .grad-bar-label { font-size: 0.82rem; color: #555; margin-bottom: 4px; }
+  .grad-bars { display: flex; gap: 4px; align-items: flex-end; height: 80px; }
+  .grad-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    transition: height 0.4s, background 0.4s;
+    min-width: 8px;
+    position: relative;
+  }
+
+  /* Step 3 gate info */
+  .gate-info-box {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s;
+  }
+  .gate-info-box h4 { color: #f6d860; font-size: 1rem; margin-bottom: 8px; }
+  .gate-info-box p { color: #a0b8d8; font-size: 0.88rem; line-height: 1.6; }
+
+  /* Step 4 */
+  .sentence-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .word-token {
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    background: #f0f4ff;
+    color: #3949ab;
+    border: 2px solid #c5cae9;
+    transition: all 0.35s;
+  }
+  .word-token.current { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border-color: transparent; transform: scale(1.08); }
+  .word-token.done { background: #e8f5e9; color: #2e7d32; border-color: #81c784; }
+  .word-token.neg { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+  .cell-state-chart { margin: 16px 0; }
+  .cs-title { font-size: 0.85rem; color: #555; margin-bottom: 8px; }
+  .cs-bars { display: flex; gap: 5px; align-items: flex-end; height: 90px; }
+  .cs-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    transition: height 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.5s;
+    position: relative;
+  }
+  .emotion-output {
+    text-align: center;
+    margin: 14px 0;
+    font-size: 2.2rem;
+    transition: all 0.4s;
+  }
+  .emotion-label {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 4px;
+  }
+  .sentence-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .sent-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1.5px solid #c5cae9;
+    background: #f0f4ff;
+    color: #3949ab;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .sent-btn.active-sent {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  /* Step 5 */
+  .model-cards-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .model-card {
+    background: #f7f9ff;
+    border-radius: 12px;
+    padding: 14px;
+    border: 2px solid #e0e4f5;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .model-card:hover { border-color: #667eea; box-shadow: 0 4px 12px rgba(102,126,234,0.2); }
+  .model-card.selected { border-color: #667eea; background: #eef0ff; box-shadow: 0 4px 16px rgba(102,126,234,0.3); }
+  .model-card h4 { font-size: 1rem; color: #3949ab; margin-bottom: 6px; }
+  .model-card p { font-size: 0.78rem; color: #666; line-height: 1.5; }
+  .model-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin: 4px 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>🔄 序列模型：RNN 与 LSTM</h1>
+  <p>StatQuest 风格 · 交互式可视化 · 6 步掌握序列建模核心</p>
+</div>
+
+<nav class="nav-bar" id="navBar">
+  <button class="nav-btn active" onclick="goStep(0)">Step 0：为什么序列模型</button>
+  <button class="nav-btn" onclick="goStep(1)">Step 1：RNN 展开图</button>
+  <button class="nav-btn" onclick="goStep(2)">Step 2：梯度消失</button>
+  <button class="nav-btn" onclick="goStep(3)">Step 3：LSTM 门控</button>
+  <button class="nav-btn" onclick="goStep(4)">Step 4：记忆演示</button>
+  <button class="nav-btn" onclick="goStep(5)">Step 5：对比总结</button>
+</nav>
+
+<div class="container">
+
+<!-- ==================== STEP 0 ==================== -->
+<div class="step-panel active" id="step0">
+  <div class="step-title">Step 0：为什么需要序列模型？</div>
+  <div class="step-subtitle">普通神经网络"看不见"顺序，而语言、时间、声音都有顺序</div>
+  <div class="main-layout">
+    <div class="viz-panel" id="viz0">
+      <div class="btn-group">
+        <button class="btn btn-secondary" id="btn0nn" onclick="s0Switch('nn')">🔲 普通 NN</button>
+        <button class="btn btn-primary btn-active" id="btn0rnn" onclick="s0Switch('rnn')">🔄 RNN</button>
+      </div>
+      <div id="s0nn" style="display:none">
+        <div style="color:#555;font-size:0.9rem;margin-bottom:10px;font-weight:600;">📦 普通 NN：每个词独立处理，互不联系</div>
+        <div style="color:#888;font-size:0.82rem;margin-bottom:14px;">输入句子：「今天 天气 很 好」</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;margin:18px 0;">
+          <div style="text-align:center">
+            <div class="word-box nn">今天</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;color:#3949ab;font-size:0.82rem;font-weight:600;border:2px solid #c5cae9">独立处理<br>无记忆</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#fff3e0;border-radius:6px;padding:6px 10px;color:#e65100;font-size:0.78rem;font-weight:700">输出 y₀</div>
+          </div>
+          <div style="text-align:center">
+            <div class="word-box nn">天气</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;color:#3949ab;font-size:0.82rem;font-weight:600;border:2px solid #c5cae9">独立处理<br>无记忆</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#fff3e0;border-radius:6px;padding:6px 10px;color:#e65100;font-size:0.78rem;font-weight:700">输出 y₁</div>
+          </div>
+          <div style="text-align:center">
+            <div class="word-box nn">很</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;color:#3949ab;font-size:0.82rem;font-weight:600;border:2px solid #c5cae9">独立处理<br>无记忆</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#fff3e0;border-radius:6px;padding:6px 10px;color:#e65100;font-size:0.78rem;font-weight:700">输出 y₂</div>
+          </div>
+          <div style="text-align:center">
+            <div class="word-box nn">好</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#e8eaf6;border-radius:8px;padding:10px 14px;color:#3949ab;font-size:0.82rem;font-weight:600;border:2px solid #c5cae9">独立处理<br>无记忆</div>
+            <div style="font-size:1.2rem;margin:6px 0;color:#9fa8da">↓</div>
+            <div style="background:#fff3e0;border-radius:6px;padding:6px 10px;color:#e65100;font-size:0.78rem;font-weight:700">输出 y₃</div>
+          </div>
+        </div>
+        <div style="text-align:center;background:#fff3e0;border-radius:10px;padding:12px;border:2px dashed #ffb74d;color:#e65100;font-size:0.88rem;">
+          ❌ 问题："天气" 不知道前面是 "今天"，上下文完全丢失
+        </div>
+      </div>
+      <div id="s0rnn">
+        <div style="color:#555;font-size:0.9rem;margin-bottom:10px;font-weight:600;">🔄 RNN：隐状态在时间步之间传递，携带上下文</div>
+        <div style="color:#888;font-size:0.82rem;margin-bottom:14px;">输入句子：「我 爱 吃 苹果」</div>
+        <canvas id="canvas0rnn" width="520" height="280" style="width:100%;max-width:520px;display:block;margin:0 auto"></canvas>
+        <div style="text-align:center;background:#e8f5e9;border-radius:10px;padding:12px;border:2px dashed #81c784;color:#2e7d32;font-size:0.88rem;margin-top:12px;">
+          ✅ 每个时间步的 hₜ 携带了从 h₀ 到 hₜ₋₁ 的所有历史信息
+        </div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🌊 顺序数据的挑战</h3>
+        <p>自然界中大量数据都具有<span class="hl">时序性</span>——后面的含义依赖前面的内容：</p>
+        <ul style="margin-top:10px">
+          <li>「银行」的含义取决于上下文（金融机构 or 河岸）</li>
+          <li>股票价格受过去几天走势影响</li>
+          <li>语音识别需要前后音节配合</li>
+        </ul>
+        <div style="margin-top:12px;font-size:0.85rem;color:#8899bb;">普通前馈网络假设输入相互独立，无法捕获这种依赖关系。</div>
+      </div>
+      <div class="info-card">
+        <h3>🎯 序列模型的应用</h3>
+        <div class="use-cases">
+          <span class="tag tag-blue">🌐 机器翻译</span>
+          <span class="tag tag-yellow">💬 情感分析</span>
+          <span class="tag tag-green">📈 时序预测</span>
+          <span class="tag tag-blue">🎤 语音识别</span>
+          <span class="tag tag-yellow">✍️ 文本生成</span>
+          <span class="tag tag-green">🎵 音乐生成</span>
+          <span class="tag tag-blue">📰 问答系统</span>
+          <span class="tag tag-red">🏥 医疗时序</span>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>💡 核心思路</h3>
+        <p>RNN 的关键创新：引入<span class="hl">隐状态（Hidden State）hₜ</span></p>
+        <div class="formula-box">hₜ = f(hₜ₋₁, xₜ)</div>
+        <p>每一步的输出不只取决于当前输入 xₜ，还取决于<span class="hl-green">上一步的隐状态 hₜ₋₁</span>，从而携带历史信息。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 1 ==================== -->
+<div class="step-panel" id="step1">
+  <div class="step-title">Step 1：RNN 展开图</div>
+  <div class="step-subtitle">将循环展开成时间轴，每步共享同一组参数 W</div>
+  <div class="main-layout">
+    <div class="viz-panel">
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="s1StepForward()">▶ 单步推进</button>
+        <button class="btn btn-secondary" id="s1AutoBtn" onclick="s1ToggleAuto()">⏩ 自动播放</button>
+        <button class="btn btn-secondary" onclick="s1Reset()">↩ 重置</button>
+      </div>
+      <canvas id="canvas1" style="width:100%;border-radius:8px"></canvas>
+      <div id="s1Status" style="margin-top:10px;padding:10px;background:#f0f4ff;border-radius:8px;font-size:0.88rem;color:#3949ab;min-height:38px;"></div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>📐 RNN 计算公式</h3>
+        <div class="formula-box">hₜ = tanh(Wh · hₜ₋₁ + Wx · xₜ + b)</div>
+        <ul style="margin-top:8px">
+          <li><span class="hl">xₜ</span>：当前时间步输入（橙色）</li>
+          <li><span class="hl-blue">hₜ₋₁</span>：上一步隐状态（蓝色）</li>
+          <li><span class="hl-green">hₜ</span>：当前步输出/隐状态（绿色）</li>
+          <li><span class="hl">tanh</span>：激活函数，压缩到 [-1,1]</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🔑 参数共享</h3>
+        <p>RNN 最优雅的地方：<span class="hl">所有时间步共享同一组参数</span> Wh、Wx、b</p>
+        <div class="formula-box">W₀ = W₁ = W₂ = W₃ = W</div>
+        <p>好处：</p>
+        <ul style="margin-top:6px">
+          <li>参数量固定，与序列长度无关</li>
+          <li>可处理任意长度的序列</li>
+          <li>在不同位置学到同一种"处理模式"</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🔄 展开的理解</h3>
+        <p>循环结构在时间轴上展开后，等价于一个<span class="hl">很深的前馈网络</span>，每层参数相同。</p>
+        <div style="margin-top:10px;padding:10px;background:rgba(246,216,96,0.08);border-radius:8px;border-left:3px solid #f6d860;font-size:0.85rem;color:#aabbdd;">
+          ⚠️ 正因如此，反向传播时梯度需要通过所有时间步传递，容易发生梯度消失——这将在 Step 2 详细讲解。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 2 ==================== -->
+<div class="step-panel" id="step2">
+  <div class="step-title">Step 2：RNN 的致命问题 — 梯度消失</div>
+  <div class="step-subtitle">反向传播时，梯度随时间步指数衰减，早期词的影响消失殆尽</div>
+  <div class="main-layout">
+    <div class="viz-panel">
+      <div class="btn-group">
+        <button class="btn btn-secondary" id="btn2short" onclick="s2Switch('short')">📏 短序列（3步）</button>
+        <button class="btn btn-primary btn-active" id="btn2long" onclick="s2Switch('long')">📏 长序列（10步）</button>
+      </div>
+      <div class="slider-wrap">
+        <label>
+          <span>序列长度</span>
+          <span id="seqLenVal" style="font-weight:700;color:#667eea">10</span>
+        </label>
+        <input type="range" id="seqLenSlider" min="2" max="15" value="10" oninput="s2UpdateLen(this.value)">
+      </div>
+      <canvas id="canvas2" style="width:100%;border-radius:8px;margin-bottom:10px"></canvas>
+      <div style="background:#f9f9f9;border-radius:10px;padding:14px;margin-top:8px">
+        <div class="grad-bar-label">每个时间步接收到的梯度幅度（越靠左 = 越早期的词）</div>
+        <div class="grad-bars" id="gradBars"></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:#aaa;margin-top:4px;">
+          <span>← t=0（最早）</span>
+          <span>t=T（最晚）→</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>📉 梯度消失的数学</h3>
+        <p>每经过一个时间步，梯度乘以一个因子 <span class="hl">≤ 1</span>：</p>
+        <div class="formula-box">∂L/∂h₀ = ∏ᵢ (∂hᵢ/∂hᵢ₋₁) · ∂L/∂hₙ</div>
+        <p>tanh 的导数最大值为 <span class="hl">1</span>，通常 &lt; 1；乘以 T 次后指数衰减。</p>
+      </div>
+      <div class="info-card">
+        <h3>🤔 为什么 tanh 是罪魁祸首</h3>
+        <ul>
+          <li>tanh 将输出压缩到 <span class="hl">(-1, 1)</span></li>
+          <li>饱和区（输入很大或很小）梯度趋近于 <span class="hl-red">0</span></li>
+          <li>多步相乘后梯度接近零，早期参数无法更新</li>
+          <li>网络"记不住"很久以前的信息</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>💡 LSTM 的动机</h3>
+        <p>我们需要一种机制，让梯度可以"无损"地通过很多时间步传播。</p>
+        <p style="margin-top:8px">LSTM 的解决方案：引入<span class="hl">细胞状态（Cell State）</span>作为"高速公路"，让信息直接流过而不被压缩。</p>
+        <div style="margin-top:10px;padding:10px;background:rgba(72,199,142,0.08);border-radius:8px;border-left:3px solid #48c78e;font-size:0.85rem;color:#aabbdd;">
+          ✅ LSTM 用<span class="hl-green">加法</span>更新 Cell State，梯度可以直接流过加法节点！
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 3 ==================== -->
+<div class="step-panel" id="step3">
+  <div class="step-title">Step 3：LSTM 门控机制</div>
+  <div class="step-subtitle">三扇"门"精确控制信息的遗忘、记忆与输出</div>
+  <div class="main-layout">
+    <div class="viz-panel">
+      <div style="color:#555;font-size:0.85rem;margin-bottom:8px">👆 点击各个门查看详细公式</div>
+      <canvas id="canvas3" style="width:100%;border-radius:8px"></canvas>
+      <div id="gateInfoBox" class="gate-info-box">
+        <h4>🔍 请点击上方 LSTM Cell 中的各个门</h4>
+        <p>遗忘门（红）/ 输入门（绿）/ 输出门（蓝）/ 候选值（橙）— 点击高亮查看解释</p>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🧠 Cell State vs Hidden State</h3>
+        <p><span class="hl">Cell State (Cₜ)</span>：长期记忆，高速公路</p>
+        <ul style="margin-top:6px">
+          <li>贯穿整个序列，只有少量线性修改</li>
+          <li>梯度可以"无阻"地流过，解决梯度消失</li>
+          <li>类比：人的长期记忆（年份、姓名等）</li>
+        </ul>
+        <p style="margin-top:10px"><span class="hl-blue">Hidden State (hₜ)</span>：短期记忆，工作记忆</p>
+        <ul style="margin-top:6px">
+          <li>经过 tanh 压缩，用于当前输出和下一步</li>
+          <li>类比：人的工作记忆（当前句子上下文）</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🚪 三个门的核心公式</h3>
+        <div class="formula-box" style="text-align:left;font-size:0.82rem">
+          <span style="color:#ff6b6b">f</span> = σ(Wf·[h,x]+bf)  <span style="color:#888">← 遗忘门</span><br>
+          <span style="color:#51cf66">i</span> = σ(Wi·[h,x]+bi)  <span style="color:#888">← 输入门</span><br>
+          <span style="color:#f6d860">C̃</span> = tanh(Wc·[h,x]+bc) <span style="color:#888">← 候选</span><br>
+          <span style="color:#74c0fc">o</span> = σ(Wo·[h,x]+bo) <span style="color:#888">← 输出门</span><br><br>
+          <span style="color:#aaa">Cₜ = </span><span style="color:#ff6b6b">f</span><span style="color:#aaa">⊙Cₜ₋₁ + </span><span style="color:#51cf66">i</span><span style="color:#aaa">⊙</span><span style="color:#f6d860">C̃</span><br>
+          <span style="color:#aaa">hₜ = </span><span style="color:#74c0fc">o</span><span style="color:#aaa">⊙tanh(Cₜ)</span>
+        </div>
+        <p style="font-size:0.82rem;color:#8899bb;">σ = sigmoid函数，输出0~1（门控信号）；⊙ = 逐元素相乘</p>
+      </div>
+      <div class="info-card" id="gateDetailCard">
+        <h3>📌 直觉理解</h3>
+        <p>想象你在阅读一篇文章，每遇到一个新词：</p>
+        <ul style="margin-top:8px">
+          <li><span class="hl-red">遗忘门</span>：这个词让你忘了哪些旧知识？</li>
+          <li><span class="hl-green">输入门</span>：这个词值得记住多少新信息？</li>
+          <li><span class="hl-blue">输出门</span>：现在应该输出/表达什么？</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 4 ==================== -->
+<div class="step-panel" id="step4">
+  <div class="step-title">Step 4：LSTM 记忆演示</div>
+  <div class="step-subtitle">观察 LSTM 如何通过细胞状态处理长距离情感依赖</div>
+  <div class="main-layout">
+    <div class="viz-panel">
+      <div class="sentence-selector" id="sentSelector">
+        <button class="sent-btn active-sent" onclick="s4SelectSent(0)">句子 1：转折</button>
+        <button class="sent-btn" onclick="s4SelectSent(1)">句子 2：否定</button>
+        <button class="sent-btn" onclick="s4SelectSent(2)">句子 3：纯正面</button>
+      </div>
+      <div class="sentence-display" id="sentDisplay"></div>
+      <div class="cell-state-chart">
+        <div class="cs-title">Cell State 各维度激活值（模拟）</div>
+        <div class="cs-bars" id="csBars"></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:#aaa;margin-top:4px;">
+          <span>情感维度</span>
+          <span>语法维度</span>
+          <span>话题维度</span>
+          <span>强度维度</span>
+        </div>
+      </div>
+      <div class="emotion-output" id="emotionEmoji">❓</div>
+      <div class="emotion-label" id="emotionLabel">等待输入...</div>
+      <div class="btn-group" style="margin-top:14px">
+        <button class="btn btn-primary" id="s4PlayBtn" onclick="s4Play()">▶ 逐词播放</button>
+        <button class="btn btn-secondary" onclick="s4Reset()">↩ 重置</button>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card">
+        <h3>🔬 当前词影响分析</h3>
+        <div id="wordAnalysis" style="font-size:0.88rem;color:#a0b8d8;line-height:1.7">
+          点击「逐词播放」观察 LSTM 如何逐词更新 Cell State，以及关键词如何改变最终情感输出。
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>💾 长距离依赖的直觉</h3>
+        <p>考虑句子：<br>「<span class="hl">虽然</span>服务很差，<span class="hl">但</span>食物很<span class="hl-green">美味</span>」</p>
+        <ul style="margin-top:10px">
+          <li>「虽然」→ LSTM 学会：后面有转折</li>
+          <li>「差」→ 遗忘门清理正面信息，但"转折标志"保留在 Cell State</li>
+          <li>「但」→ 激活转折记忆，准备接受正面信息</li>
+          <li>「美味」→ 输入门大量写入正面情感</li>
+          <li>最终：<span class="hl-green">正面情感胜出 😊</span></li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🆚 与 RNN 的对比</h3>
+        <p>同样的句子，RNN 会：</p>
+        <ul style="margin-top:6px">
+          <li>看到「差」后，正面信息被严重衰减</li>
+          <li>「但」之前的转折期待难以跨越多步保留</li>
+          <li>容易误判为<span class="hl-red">负面情感</span></li>
+        </ul>
+        <p style="margin-top:8px;font-size:0.83rem;color:#8899bb">LSTM 的 Cell State 是"无损高速公路"，使长距离依赖成为可能。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 5 ==================== -->
+<div class="step-panel" id="step5">
+  <div class="step-title">Step 5：RNN vs LSTM vs GRU 对比</div>
+  <div class="step-subtitle">三种架构的权衡：简单性 vs 表达力 vs 效率</div>
+  <div class="main-layout">
+    <div class="viz-panel">
+      <div class="model-cards-row">
+        <div class="model-card" id="mc0" onclick="s5SelectModel(0)">
+          <h4>RNN</h4>
+          <p>最简单的循环网络，一个隐状态</p>
+          <div><span class="model-badge" style="background:#e3f2fd;color:#1565c0">1 状态</span><span class="model-badge" style="background:#fce4ec;color:#880e4f">0 门</span></div>
+        </div>
+        <div class="model-card selected" id="mc1" onclick="s5SelectModel(1)">
+          <h4>LSTM</h4>
+          <p>双状态（C+h），三个门精细控制</p>
+          <div><span class="model-badge" style="background:#e8f5e9;color:#1b5e20">2 状态</span><span class="model-badge" style="background:#f3e5f5;color:#4a148c">3 门</span></div>
+        </div>
+        <div class="model-card" id="mc2" onclick="s5SelectModel(2)">
+          <h4>GRU</h4>
+          <p>LSTM 的简化版，单状态两个门</p>
+          <div><span class="model-badge" style="background:#fff8e1;color:#e65100">1 状态</span><span class="model-badge" style="background:#e0f7fa;color:#006064">2 门</span></div>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-active" id="s5RadarBtn" onclick="s5ShowRadar()">📊 能力雷达图</button>
+        <button class="btn btn-secondary" id="s5MemBtn" onclick="s5ShowMemory()">🧠 记忆保留对比</button>
+      </div>
+      <canvas id="canvas5" style="width:100%;border-radius:8px"></canvas>
+    </div>
+    <div class="info-panel">
+      <div class="info-card" id="modelDetailCard">
+        <h3>📋 LSTM 详解</h3>
+        <ul>
+          <li><span class="hl">参数量</span>：约为 RNN 的 4 倍</li>
+          <li><span class="hl">训练速度</span>：比 RNN 慢，比 GRU 慢</li>
+          <li><span class="hl">长期依赖</span>：最强（专为此设计）</li>
+          <li><span class="hl">适用场景</span>：机器翻译、语音识别、复杂序列建模</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>🔑 GRU 的简化</h3>
+        <p>GRU（Gated Recurrent Unit，2014）将 LSTM 的遗忘门和输入门合并为<span class="hl">更新门</span>，额外增加<span class="hl-green">重置门</span>：</p>
+        <div class="formula-box" style="font-size:0.8rem;text-align:left">
+          z = σ(Wz·[h,x])  <span style="color:#888">← 更新门</span><br>
+          r = σ(Wr·[h,x])  <span style="color:#888">← 重置门</span><br>
+          h̃ = tanh(W·[r⊙h, x])<br>
+          hₜ = (1-z)⊙h + z⊙h̃
+        </div>
+        <p style="font-size:0.83rem;color:#8899bb">性能接近 LSTM，参数更少，训练更快。</p>
+      </div>
+      <div class="info-card">
+        <h3>🚀 选择建议</h3>
+        <ul>
+          <li><span class="hl">需要最强记忆</span>：选 LSTM（翻译、长文本）</li>
+          <li><span class="hl">计算资源有限</span>：选 GRU（移动端、实时系统）</li>
+          <li><span class="hl">快速原型</span>：选 RNN（简单时序任务）</li>
+          <li><span class="hl">2024 现状</span>：Transformer 在大部分 NLP 任务上已超越 RNN/LSTM，但 LSTM 在时间序列、低数据场景仍有价值</li>
+        </ul>
+        <div style="margin-top:10px;padding:10px;background:rgba(246,216,96,0.08);border-radius:8px;border-left:3px solid #f6d860;font-size:0.83rem;color:#aabbdd">
+          💡 Mamba (2023) 将 SSM 与选择性状态空间结合，有望在序列建模上再次挑战 Transformer。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ==================== Global ====================
+let currentStep = 0;
+function goStep(n) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+  document.querySelectorAll('.nav-btn')[n].classList.add('active');
+  currentStep = n;
+  initStep(n);
+}
+function initStep(n) {
+  if(n===0) s0Init();
+  if(n===1) s1Init();
+  if(n===2) s2Init();
+  if(n===3) s3Init();
+  if(n===4) s4Init();
+  if(n===5) s5Init();
+}
+
+// HiDPI canvas helper
+function setupCanvas(canvas, w, h) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const cw = w || rect.width || 600;
+  const ch = h || Math.round(cw * 0.55);
+  canvas.width = cw * dpr;
+  canvas.height = ch * dpr;
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return [ctx, cw, ch];
+}
+
+// ==================== STEP 0 ====================
+let s0Mode = 'rnn';
+let s0AnimTimer = null;
+function s0Init() {
+  s0Switch('rnn');
+}
+function s0Switch(mode) {
+  s0Mode = mode;
+  document.getElementById('s0nn').style.display = mode==='nn'?'block':'none';
+  document.getElementById('s0rnn').style.display = mode==='rnn'?'block':'none';
+  document.getElementById('btn0nn').className = 'btn ' + (mode==='nn'?'btn-primary btn-active':'btn-secondary');
+  document.getElementById('btn0rnn').className = 'btn ' + (mode==='rnn'?'btn-primary btn-active':'btn-secondary');
+  if(mode==='rnn') s0DrawRNN();
+}
+function s0DrawRNN() {
+  const canvas = document.getElementById('canvas0rnn');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = 520, H = 260;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const words = ['我','爱','吃','苹果'];
+  const colors = ['#ff9800','#ff5722','#e91e63','#9c27b0'];
+  const xs = [60, 180, 300, 420];
+  const cellY = 100, cellH = 50, cellW = 70;
+
+  // Draw cells
+  words.forEach((w,i) => {
+    const x = xs[i] - cellW/2;
+    // Cell box
+    ctx.save();
+    ctx.shadowColor = 'rgba(102,126,234,0.3)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#eef0ff';
+    ctx.strokeStyle = '#667eea';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, cellY, cellW, cellH, 10);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#3949ab';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('RNN', xs[i], cellY + 28);
+
+    // Input word (orange)
+    ctx.fillStyle = colors[i];
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(w, xs[i], cellY - 20);
+    // Arrow from word down
+    ctx.strokeStyle = colors[i];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(xs[i], cellY - 10);
+    ctx.lineTo(xs[i], cellY);
+    ctx.stroke();
+    drawArrowHead(ctx, xs[i], cellY, 'down', colors[i]);
+
+    // Output label
+    ctx.fillStyle = '#2e7d32';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('h'+(i), xs[i], cellY + cellH + 22);
+    ctx.strokeStyle = '#2e7d32';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(xs[i], cellY + cellH);
+    ctx.lineTo(xs[i], cellY + cellH + 10);
+    ctx.stroke();
+    drawArrowHead(ctx, xs[i], cellY + cellH + 10, 'down', '#2e7d32');
+
+    // Horizontal arrow (hidden state flow)
+    if(i < 3) {
+      ctx.strokeStyle = '#667eea';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5,3]);
+      ctx.beginPath();
+      ctx.moveTo(xs[i]+cellW/2+4, cellY+cellH/2);
+      ctx.lineTo(xs[i+1]-cellW/2-4, cellY+cellH/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      drawArrowHead(ctx, xs[i+1]-cellW/2-4, cellY+cellH/2, 'right', '#667eea');
+    }
+  });
+
+  // Input labels
+  ctx.fillStyle = '#ff9800';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('xₜ（输入）', 60, cellY - 36);
+
+  // h0 init
+  ctx.fillStyle = '#667eea';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('h₋₁=0', 10, cellY + cellH/2 + 4);
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(25, cellY+cellH/2);
+  ctx.lineTo(xs[0]-cellW/2-4, cellY+cellH/2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  drawArrowHead(ctx, xs[0]-cellW/2-4, cellY+cellH/2, 'right', '#667eea');
+
+  // Labels
+  ctx.fillStyle = '#667eea';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('←── 隐状态传递 hₜ ──→', W/2, cellY + cellH/2 - 14);
+}
+function drawArrowHead(ctx, x, y, dir, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if(dir==='down') { ctx.moveTo(x,y); ctx.lineTo(x-5,y-8); ctx.lineTo(x+5,y-8); }
+  else if(dir==='right') { ctx.moveTo(x,y); ctx.lineTo(x-8,y-5); ctx.lineTo(x-8,y+5); }
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ==================== STEP 1 ====================
+let s1Step = -1;
+let s1Auto = false;
+let s1Timer = null;
+const s1Words = ['[start]', 'I', 'love', 'cats'];
+const s1Colors = { input:'#ff9800', hidden:'#667eea', output:'#48c78e', cell:'#eef0ff' };
+
+function s1Init() {
+  s1Step = -1; s1Auto = false;
+  if(s1Timer) clearInterval(s1Timer);
+  document.getElementById('s1AutoBtn').textContent = '⏩ 自动播放';
+  document.getElementById('s1AutoBtn').className = 'btn btn-secondary';
+  s1Draw();
+  document.getElementById('s1Status').textContent = '点击「单步推进」开始动画，观察每个时间步的输入与隐状态传递。';
+}
+function s1StepForward() {
+  if(s1Step < 3) { s1Step++; s1Draw(); s1UpdateStatus(); }
+  else { s1Step = 0; s1Draw(); s1UpdateStatus(); }
+}
+function s1ToggleAuto() {
+  s1Auto = !s1Auto;
+  const btn = document.getElementById('s1AutoBtn');
+  if(s1Auto) {
+    btn.textContent = '⏸ 暂停'; btn.className = 'btn btn-primary btn-active';
+    s1Timer = setInterval(()=>{ if(s1Step<3){s1Step++;s1Draw();s1UpdateStatus();}else{s1Step=0;s1Draw();s1UpdateStatus();} }, 1200);
+  } else {
+    btn.textContent = '⏩ 自动播放'; btn.className = 'btn btn-secondary';
+    clearInterval(s1Timer);
+  }
+}
+function s1Reset() {
+  s1Auto=false; if(s1Timer) clearInterval(s1Timer);
+  document.getElementById('s1AutoBtn').textContent = '⏩ 自动播放';
+  document.getElementById('s1AutoBtn').className = 'btn btn-secondary';
+  s1Step=-1; s1Draw();
+  document.getElementById('s1Status').textContent = '已重置。点击「单步推进」开始。';
+}
+function s1UpdateStatus() {
+  const msgs = [
+    '步骤 t=0：输入 x₀ = "[start]"，初始隐状态 h₋₁ = 0，计算 h₀ = tanh(Wh·0 + Wx·x₀ + b)',
+    '步骤 t=1：输入 x₁ = "I"，使用上一步 h₀，计算 h₁ = tanh(Wh·h₀ + Wx·x₁ + b)。h₁ 包含了 x₀ 的信息！',
+    '步骤 t=2：输入 x₂ = "love"，使用 h₁，计算 h₂ = tanh(Wh·h₁ + Wx·x₂ + b)。h₂ 包含 x₀, x₁ 的信息。',
+    '步骤 t=3：输入 x₃ = "cats"，使用 h₂，计算 h₃ = tanh(Wh·h₂ + Wx·x₃ + b)。h₃ 理论上包含全部历史！'
+  ];
+  document.getElementById('s1Status').textContent = msgs[s1Step] || '';
+}
+function s1Draw() {
+  const canvas = document.getElementById('canvas1');
+  const [ctx, W, H] = setupCanvas(canvas, 0, 300);
+  ctx.clearRect(0,0,W,H);
+
+  const n = 4;
+  const marginL = 60, marginR = 20;
+  const cellW = 80, cellH = 60;
+  const spacingX = (W - marginL - marginR - cellW) / (n-1);
+  const cellY = H/2 - cellH/2;
+
+  // Draw h0 init
+  ctx.fillStyle = '#667eea';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('h₋₁=0', marginL - 30, cellY + cellH/2 + 4);
+  drawDashedArrow(ctx, marginL-15, cellY+cellH/2, marginL, cellY+cellH/2, '#667eea');
+
+  for(let i=0; i<n; i++) {
+    const x = marginL + i * spacingX;
+    const active = (i <= s1Step);
+    const isCurrent = (i === s1Step);
+
+    // Cell box
+    ctx.save();
+    if(isCurrent) { ctx.shadowColor='rgba(102,126,234,0.5)'; ctx.shadowBlur=18; }
+    ctx.fillStyle = active ? '#eef0ff' : '#f5f5f5';
+    ctx.strokeStyle = isCurrent ? '#764ba2' : (active ? '#667eea' : '#ccc');
+    ctx.lineWidth = isCurrent ? 3 : 2;
+    ctx.beginPath();
+    ctx.roundRect(x, cellY, cellW, cellH, 12);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = active ? '#3949ab' : '#bbb';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('RNN', x+cellW/2, cellY+22);
+    ctx.font = '10px sans-serif';
+    ctx.fillStyle = active ? '#5c6bc0' : '#ccc';
+    ctx.fillText('t = '+i, x+cellW/2, cellY+40);
+
+    // Input arrow (orange)
+    const inputColor = active ? s1Colors.input : '#ddd';
+    ctx.fillStyle = inputColor;
+    ctx.font = isCurrent ? 'bold 13px sans-serif' : '12px sans-serif';
+    ctx.fillText(s1Words[i], x+cellW/2, cellY - 18);
+    drawSolidArrow(ctx, x+cellW/2, cellY-10, x+cellW/2, cellY, inputColor);
+
+    // Output arrow (green)
+    const outColor = active ? s1Colors.output : '#ddd';
+    ctx.fillStyle = outColor;
+    ctx.font = '11px sans-serif';
+    ctx.fillText('h'+(i), x+cellW/2, cellY+cellH+22);
+    drawSolidArrow(ctx, x+cellW/2, cellY+cellH, x+cellW/2, cellY+cellH+12, outColor);
+
+    // Hidden state arrow to next
+    if(i < n-1) {
+      const nx = marginL + (i+1)*spacingX;
+      const arrowColor = active ? s1Colors.hidden : '#ddd';
+      drawDashedArrow(ctx, x+cellW, cellY+cellH/2, nx, cellY+cellH/2, arrowColor);
+    }
+  }
+
+  // Formula at bottom
+  ctx.fillStyle = '#888';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('hₜ = tanh(Wh · hₜ₋₁ + Wx · xₜ + b)  [所有时间步共享 W]', W/2, H-10);
+}
+function drawSolidArrow(ctx, x1, y1, x2, y2, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if(Math.abs(y2-y1) > Math.abs(x2-x1)) {
+    ctx.moveTo(x2,y2); ctx.lineTo(x2-5,y2-8); ctx.lineTo(x2+5,y2-8);
+  } else {
+    ctx.moveTo(x2,y2); ctx.lineTo(x2-8,y2-5); ctx.lineTo(x2-8,y2+5);
+  }
+  ctx.closePath(); ctx.fill();
+}
+function drawDashedArrow(ctx, x1, y1, x2, y2, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([5,3]);
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-8,y2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-8,y2-5); ctx.lineTo(x2-8,y2+5);
+  ctx.closePath(); ctx.fill();
+}
+
+// ==================== STEP 2 ====================
+let s2Len = 10;
+let s2Mode = 'long';
+function s2Init() {
+  s2Len = 10;
+  document.getElementById('seqLenSlider').value = 10;
+  document.getElementById('seqLenVal').textContent = 10;
+  s2Switch('long');
+}
+function s2Switch(mode) {
+  s2Mode = mode;
+  document.getElementById('btn2short').className = 'btn ' + (mode==='short'?'btn-primary btn-active':'btn-secondary');
+  document.getElementById('btn2long').className = 'btn ' + (mode==='long'?'btn-primary btn-active':'btn-secondary');
+  if(mode==='short'){s2Len=3;document.getElementById('seqLenSlider').value=3;document.getElementById('seqLenVal').textContent=3;}
+  else{s2Len=10;document.getElementById('seqLenSlider').value=10;document.getElementById('seqLenVal').textContent=10;}
+  s2Draw();
+}
+function s2UpdateLen(v) {
+  s2Len = parseInt(v);
+  document.getElementById('seqLenVal').textContent = v;
+  s2Mode = v<=4?'short':'long';
+  document.getElementById('btn2short').className = 'btn ' + (s2Mode==='short'?'btn-primary btn-active':'btn-secondary');
+  document.getElementById('btn2long').className = 'btn ' + (s2Mode==='long'?'btn-primary btn-active':'btn-secondary');
+  s2Draw();
+}
+function s2Draw() {
+  const canvas = document.getElementById('canvas2');
+  const [ctx, W, H] = setupCanvas(canvas, 0, 180);
+  ctx.clearRect(0,0,W,H);
+
+  const n = s2Len;
+  const marginL = 20, marginR = 20;
+  const cellW = Math.min(48, (W - marginL - marginR - (n-1)*10) / n);
+  const spacing = (W - marginL - marginR - cellW) / Math.max(n-1,1);
+  const cellY = 40, cellH = 45;
+
+  // Gradients for each cell (exponential decay from right)
+  const factor = 0.75;
+  for(let i=0; i<n; i++) {
+    const x = marginL + i * spacing;
+    const gradMag = Math.pow(factor, n-1-i);
+    const r = Math.round(255 * (1 - gradMag * 0.5));
+    const g = Math.round(100 * gradMag);
+    const b = Math.round(100 * gradMag);
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.15 + gradMag*0.7})`;
+    ctx.strokeStyle = `rgba(${r},${g},${b},${0.4 + gradMag*0.5})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(x, cellY, cellW, cellH, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#333';
+    ctx.font = '10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('t='+i, x+cellW/2, cellY+cellH/2+4);
+
+    if(i < n-1) {
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth=1.5; ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(x+cellW, cellY+cellH/2); ctx.lineTo(x+spacing, cellY+cellH/2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='#aaa'; ctx.beginPath();
+      ctx.moveTo(x+spacing,cellY+cellH/2); ctx.lineTo(x+spacing-6,cellY+cellH/2-4); ctx.lineTo(x+spacing-6,cellY+cellH/2+4);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // Gradient arrow from right to left
+  const grad = ctx.createLinearGradient(marginL, 0, marginL + (n-1)*spacing + cellW, 0);
+  grad.addColorStop(0, 'rgba(240,50,50,0.1)');
+  grad.addColorStop(1, 'rgba(240,50,50,0.8)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(marginL, cellY+cellH+12, (n-1)*spacing+cellW, 14);
+
+  ctx.fillStyle='#c62828'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('← 梯度反向传播（越往左越小）', marginL + ((n-1)*spacing+cellW)/2, cellY+cellH+23);
+
+  // Labels
+  ctx.fillStyle='#333'; ctx.font='bold 11px sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText('序列长度 = ' + n + '，梯度衰减因子 ≈ 0.75^步数', marginL, 18);
+
+  // Gradient bars
+  const barContainer = document.getElementById('gradBars');
+  barContainer.innerHTML = '';
+  for(let i=0; i<n; i++) {
+    const gradMag = Math.pow(factor, n-1-i);
+    const bar = document.createElement('div');
+    bar.className = 'grad-bar';
+    const pct = Math.max(2, Math.round(gradMag * 100));
+    const hue = Math.round(gradMag * 120);
+    bar.style.height = pct + '%';
+    bar.style.background = `hsl(${hue}, 70%, 50%)`;
+    bar.title = `t=${i}：梯度 ≈ ${(gradMag*100).toFixed(1)}%`;
+    barContainer.appendChild(bar);
+  }
+}
+
+// ==================== STEP 3 ====================
+let s3ActiveGate = null;
+const s3GateData = {
+  forget: {
+    label: '🔴 遗忘门 (Forget Gate)',
+    formula: 'f = σ(Wf · [hₜ₋₁, xₜ] + bf)',
+    desc: '输出 0~1 的向量，决定<b>应该忘记多少</b>过去的 Cell State。0 = 完全忘记，1 = 完全保留。例如：看到"但是"时，遗忘之前的负面情感。',
+    color: '#ff6b6b',
+    bg: '#fff0f0'
+  },
+  input: {
+    label: '🟢 输入门 (Input Gate)',
+    formula: 'i = σ(Wi · [hₜ₋₁, xₜ] + bi)',
+    formula2: 'C̃ = tanh(Wc · [hₜ₋₁, xₜ] + bc)',
+    desc: '两部分协作：输入门决定<b>应该写入多少</b>新信息，候选值 C̃ 提供实际要写入的内容。Cₜ = f⊙Cₜ₋₁ + i⊙C̃',
+    color: '#51cf66',
+    bg: '#f0fff4'
+  },
+  output: {
+    label: '🔵 输出门 (Output Gate)',
+    formula: 'o = σ(Wo · [hₜ₋₁, xₜ] + bo)',
+    formula2: 'hₜ = o ⊙ tanh(Cₜ)',
+    desc: '决定<b>应该输出多少</b> Cell State 的内容作为隐状态 hₜ。不是所有记忆都需要在每步输出，输出门进行选择性过滤。',
+    color: '#74c0fc',
+    bg: '#f0f8ff'
+  },
+  candidate: {
+    label: '🟡 候选值 (Candidate)',
+    formula: 'C̃ = tanh(Wc · [hₜ₋₁, xₜ] + bc)',
+    desc: '新的候选记忆值，由 tanh 压缩到 (-1,1)。与输入门相乘后才真正写入 Cell State，提供"待写入"的信息内容。',
+    color: '#f6d860',
+    bg: '#fffdf0'
+  }
+};
+
+function s3Init() {
+  s3ActiveGate = null;
+  s3DrawCell();
+  document.getElementById('gateInfoBox').innerHTML = '<h4>🔍 请点击上方 LSTM Cell 中的各个门</h4><p>遗忘门（红）/ 输入门（绿）/ 输出门（蓝）/ 候选值（橙）— 点击高亮查看解释</p>';
+}
+
+let s3GateRects = {};
+function s3DrawCell(highlight) {
+  const canvas = document.getElementById('canvas3');
+  const [ctx, W, H] = setupCanvas(canvas, 0, 320);
+  ctx.clearRect(0,0,W,H);
+  s3GateRects = {};
+
+  const cx = W/2, cy = H/2;
+  // Cell State highway (horizontal line)
+  const hwY = cy - 80;
+  ctx.strokeStyle = '#f6d860'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(40, hwY); ctx.lineTo(W-40, hwY); ctx.stroke();
+  ctx.fillStyle='#f6d860'; ctx.font='bold 11px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('← Cell State Cₜ（高速公路）', 44, hwY-8);
+  drawArrowHead(ctx, W-40, hwY, 'right', '#f6d860');
+
+  // Input [h, x] on left
+  ctx.fillStyle='#667eea'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('[hₜ₋₁, xₜ]', 70, cy+10);
+  ctx.strokeStyle='#667eea'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(100, cy); ctx.lineTo(W-100, cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Gate positions
+  const gates = [
+    { key:'forget', x: W*0.25, y: cy, label:'遗忘门', sym:'f', color:'#ff6b6b' },
+    { key:'input',  x: W*0.45, y: cy, label:'输入门', sym:'i', color:'#51cf66' },
+    { key:'candidate', x: W*0.55, y: cy+50, label:'候选值', sym:'C̃', color:'#f6d860' },
+    { key:'output', x: W*0.72, y: cy, label:'输出门', sym:'o', color:'#74c0fc' }
+  ];
+
+  gates.forEach(g => {
+    const r = 26;
+    const isHL = (highlight === g.key);
+    ctx.save();
+    if(isHL) { ctx.shadowColor = g.color; ctx.shadowBlur = 20; }
+    ctx.fillStyle = isHL ? g.color : g.color + '33';
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = isHL ? 3 : 2;
+    ctx.beginPath(); ctx.arc(g.x, g.y, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = isHL ? '#fff' : g.color;
+    ctx.font = 'bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(g.sym, g.x, g.y);
+    ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(g.label, g.x, g.y + r + 16);
+    s3GateRects[g.key] = { x:g.x-r, y:g.y-r, w:r*2, h:r*2 };
+
+    // Connect gate to highway
+    ctx.strokeStyle = g.color; ctx.lineWidth = isHL ? 2 : 1.5;
+    ctx.setLineDash([3,2]);
+    ctx.beginPath();
+    if(g.key !== 'candidate') {
+      ctx.moveTo(g.x, g.y - r);
+      ctx.lineTo(g.x, hwY);
+    } else {
+      ctx.moveTo(g.x, g.y - r);
+      ctx.lineTo(g.x, hwY+8);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    // small multiplication symbol on highway
+    if(g.key !== 'candidate' && g.key !== 'output') {
+      ctx.fillStyle = g.color;
+      ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('×', g.x, hwY+14);
+    }
+  });
+
+  // Output arrow to hₜ
+  ctx.strokeStyle='#48c78e'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(W*0.72, cy+26); ctx.lineTo(W*0.72, H-30); ctx.stroke();
+  drawArrowHead(ctx, W*0.72, H-30, 'down', '#48c78e');
+  ctx.fillStyle='#48c78e'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('hₜ（输出）', W*0.72, H-14);
+
+  // Cₜ input from left
+  ctx.fillStyle='#f6d860'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Cₜ₋₁', 25, hwY+4);
+  drawArrowHead(ctx, 40, hwY, 'right', '#f6d860');
+
+  canvas.onclick = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width / (window.devicePixelRatio||1);
+    const scaleY = canvas.height / rect.height / (window.devicePixelRatio||1);
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    for(const [key, r] of Object.entries(s3GateRects)) {
+      if(mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h) {
+        s3ActiveGate = key;
+        s3DrawCell(key);
+        s3ShowGateInfo(key);
+        return;
+      }
+    }
+  };
+}
+function s3ShowGateInfo(key) {
+  const g = s3GateData[key];
+  const box = document.getElementById('gateInfoBox');
+  box.style.borderLeftColor = g.color;
+  let html = `<h4 style="color:${g.color}">${g.label}</h4>`;
+  html += `<div style="background:#1a1a2e;border-radius:8px;padding:10px;font-family:monospace;font-size:0.88rem;color:#f6d860;margin:8px 0">${g.formula}`;
+  if(g.formula2) html += `<br>${g.formula2}`;
+  html += '</div>';
+  html += `<p style="color:#a0b8d8;font-size:0.87rem;line-height:1.6">${g.desc}</p>`;
+  box.innerHTML = html;
+}
+
+// ==================== STEP 4 ====================
+const s4Sentences = [
+  {
+    words: ['虽然','服务','很','差','，','但','食物','很','美味'],
+    types: ['neutral','neutral','neutral','neg','punct','pivot','neutral','neutral','pos'],
+    states: [
+      [0.1,0.2,0.1,0.1],
+      [0.2,0.3,0.2,0.1],
+      [0.25,0.35,0.25,0.15],
+      [0.15,0.4,0.1,0.3],   // 差: 情感降
+      [0.15,0.4,0.1,0.3],
+      [0.2,0.45,0.2,0.35],  // 但: 转折
+      [0.4,0.5,0.35,0.45],
+      [0.55,0.55,0.4,0.55],
+      [0.85,0.6,0.5,0.7]    // 美味: 正面
+    ],
+    analysis: [
+      '「虽然」→ 遗忘门微开，LSTM 记录：后面有转折',
+      '「服务」→ 中性词，Cell State 小幅更新',
+      '「很」→ 强调词，情感强度维度轻微激活',
+      '「差」→ 遗忘门关闭正面状态（红色减少），负面维度上升',
+      '「，」→ 标点符号，状态基本不变',
+      '「但」→ 转折信号！激活 Cell State 中的转折记忆，准备接受正面输入',
+      '「食物」→ 话题切换，话题维度变化',
+      '「很」→ 强调，情感强度维度再次激活',
+      '「美味」→ 输入门大开，正面情感大量写入，情感维度飙升 😊'
+    ],
+    result: '😊',
+    resultLabel: '正面情感（0.85）'
+  },
+  {
+    words: ['这','电影','不','好看'],
+    types: ['neutral','neutral','neg','neg'],
+    states: [
+      [0.2,0.1,0.1,0.1],
+      [0.3,0.2,0.2,0.15],
+      [0.1,0.3,0.1,0.4],    // 不: 否定门开
+      [0.05,0.35,0.1,0.7]   // 好看被否定
+    ],
+    analysis: [
+      '「这」→ 中性词，初始化 Cell State',
+      '「电影」→ 话题维度激活（这是在说电影）',
+      '「不」→ 否定词！遗忘门清空正面记忆，输入强负面信号',
+      '「好看」→ 在否定的上下文中，「好看」被否定，最终情感为负面 😠'
+    ],
+    result: '😠',
+    resultLabel: '负面情感（−0.9）'
+  },
+  {
+    words: ['今天','心情','超级','棒'],
+    types: ['neutral','neutral','pos','pos'],
+    states: [
+      [0.2,0.1,0.1,0.1],
+      [0.35,0.2,0.2,0.2],
+      [0.65,0.3,0.35,0.5],
+      [0.9,0.4,0.45,0.85]
+    ],
+    analysis: [
+      '「今天」→ 时间词，情感维度初始中性',
+      '「心情」→ 情感相关词，情感维度轻微激活',
+      '「超级」→ 强度词！情感强度维度显著上升，准备接受评价词',
+      '「棒」→ 强正面词，叠加「超级」的强化，情感维度全面高激活 😊'
+    ],
+    result: '😊',
+    resultLabel: '强正面情感（0.95）'
+  }
+];
+let s4CurSent = 0;
+let s4CurWord = -1;
+let s4Timer = null;
+let s4Playing = false;
+
+function s4Init() {
+  s4SelectSent(0);
+}
+function s4SelectSent(idx) {
+  s4CurSent = idx;
+  s4CurWord = -1;
+  s4Playing = false;
+  if(s4Timer) clearInterval(s4Timer);
+  document.getElementById('s4PlayBtn').textContent = '▶ 逐词播放';
+  document.querySelectorAll('.sent-btn').forEach((b,i)=>b.className='sent-btn'+(i===idx?' active-sent':''));
+  s4RenderSentence();
+  s4RenderCellState(-1);
+  document.getElementById('emotionEmoji').textContent = '❓';
+  document.getElementById('emotionLabel').textContent = '等待输入...';
+  document.getElementById('wordAnalysis').textContent = '点击「逐词播放」观察 LSTM 如何逐词更新 Cell State。';
+}
+function s4RenderSentence() {
+  const sent = s4Sentences[s4CurSent];
+  const el = document.getElementById('sentDisplay');
+  el.innerHTML = sent.words.map((w,i) => {
+    let cls = 'word-token';
+    if(i < s4CurWord) cls += sent.types[i]==='neg'?' neg':' done';
+    else if(i === s4CurWord) cls += ' current';
+    return `<div class="${cls}">${w}</div>`;
+  }).join('');
+}
+function s4RenderCellState(wordIdx) {
+  const sent = s4Sentences[s4CurSent];
+  const bars = document.getElementById('csBars');
+  const labels = ['情感','语法','话题','强度'];
+  const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12'];
+  bars.innerHTML = '';
+  const vals = wordIdx >= 0 ? sent.states[wordIdx] : [0.1,0.1,0.1,0.1];
+  vals.forEach((v,i) => {
+    const bar = document.createElement('div');
+    bar.className = 'cs-bar';
+    bar.style.height = (v*100).toFixed(0) + '%';
+    bar.style.background = colors[i];
+    bar.title = labels[i] + ': ' + (v*100).toFixed(0) + '%';
+    bars.appendChild(bar);
+  });
+}
+function s4Play() {
+  const sent = s4Sentences[s4CurSent];
+  if(s4Playing) {
+    s4Playing = false;
+    clearInterval(s4Timer);
+    document.getElementById('s4PlayBtn').textContent = '▶ 继续播放';
+    return;
+  }
+  s4Playing = true;
+  document.getElementById('s4PlayBtn').textContent = '⏸ 暂停';
+  s4Timer = setInterval(() => {
+    if(s4CurWord < sent.words.length - 1) {
+      s4CurWord++;
+      s4RenderSentence();
+      s4RenderCellState(s4CurWord);
+      document.getElementById('wordAnalysis').innerHTML = sent.analysis[s4CurWord];
+      if(s4CurWord === sent.words.length-1) {
+        document.getElementById('emotionEmoji').textContent = sent.result;
+        document.getElementById('emotionLabel').textContent = sent.resultLabel;
+      } else {
+        document.getElementById('emotionEmoji').textContent = '🤔';
+        document.getElementById('emotionLabel').textContent = '处理中...';
+      }
+    } else {
+      s4Playing = false;
+      clearInterval(s4Timer);
+      document.getElementById('s4PlayBtn').textContent = '▶ 逐词播放';
+    }
+  }, 800);
+}
+function s4Reset() {
+  s4Playing = false;
+  if(s4Timer) clearInterval(s4Timer);
+  document.getElementById('s4PlayBtn').textContent = '▶ 逐词播放';
+  s4SelectSent(s4CurSent);
+}
+
+// ==================== STEP 5 ====================
+let s5SelectedModel = 1;
+let s5View = 'radar';
+function s5Init() {
+  s5SelectedModel = 1;
+  s5View = 'radar';
+  s5ShowRadar();
+}
+function s5SelectModel(idx) {
+  s5SelectedModel = idx;
+  document.querySelectorAll('.model-card').forEach((c,i)=>c.className='model-card'+(i===idx?' selected':''));
+  const infos = [
+    { title:'RNN 详解', items:['参数量：最少（1个权重矩阵组）','训练速度：最快','长期依赖：差（梯度消失）','适用：简单时序分类、短序列'] },
+    { title:'LSTM 详解', items:['参数量：约 RNN 的 4 倍','训练速度：中等（门控开销）','长期依赖：最强（专为此设计）','适用：翻译、语音识别、长文本'] },
+    { title:'GRU 详解', items:['参数量：约 RNN 的 3 倍（略少于LSTM）','训练速度：比 LSTM 快约 20%','长期依赖：接近 LSTM','适用：资源有限、移动端、实时系统'] }
+  ];
+  const info = infos[idx];
+  document.getElementById('modelDetailCard').innerHTML = `<h3>📋 ${info.title}</h3><ul style="margin-top:8px">${info.items.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  s5DrawCurrent();
+}
+function s5ShowRadar() {
+  s5View = 'radar';
+  document.getElementById('s5RadarBtn').className = 'btn btn-primary btn-active';
+  document.getElementById('s5MemBtn').className = 'btn btn-secondary';
+  s5DrawCurrent();
+}
+function s5ShowMemory() {
+  s5View = 'memory';
+  document.getElementById('s5RadarBtn').className = 'btn btn-secondary';
+  document.getElementById('s5MemBtn').className = 'btn btn-primary btn-active';
+  s5DrawCurrent();
+}
+function s5DrawCurrent() {
+  if(s5View === 'radar') s5DrawRadar();
+  else s5DrawMemory();
+}
+
+function s5DrawRadar() {
+  const canvas = document.getElementById('canvas5');
+  const [ctx, W, H] = setupCanvas(canvas, 0, 360);
+  ctx.clearRect(0,0,W,H);
+
+  const cx = W/2, cy = H/2 + 10;
+  const R = Math.min(W, H) * 0.32;
+  const axes = ['长期记忆', '训练速度', '参数效率', '实现简单', '序列建模'];
+  const n = axes.length;
+  const models = [
+    { name:'RNN', color:'#ff9800', vals:[0.2, 0.95, 0.95, 0.95, 0.4] },
+    { name:'LSTM', color:'#667eea', vals:[0.95, 0.6, 0.55, 0.4, 0.92] },
+    { name:'GRU', color:'#48c78e', vals:[0.85, 0.75, 0.72, 0.65, 0.85] }
+  ];
+
+  // Draw radar grid
+  for(let ring=1; ring<=5; ring++) {
+    const r = R * ring/5;
+    ctx.beginPath();
+    for(let i=0; i<n; i++) {
+      const angle = (i/n)*Math.PI*2 - Math.PI/2;
+      const x = cx + r*Math.cos(angle);
+      const y = cy + r*Math.sin(angle);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(150,150,150,0.25)'; ctx.lineWidth=1; ctx.stroke();
+  }
+  // Axes
+  for(let i=0; i<n; i++) {
+    const angle = (i/n)*Math.PI*2 - Math.PI/2;
+    ctx.strokeStyle='rgba(150,150,150,0.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+R*Math.cos(angle), cy+R*Math.sin(angle)); ctx.stroke();
+    ctx.fillStyle='#333'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    const lx = cx + (R+26)*Math.cos(angle);
+    const ly = cy + (R+26)*Math.sin(angle);
+    ctx.fillText(axes[i], lx, ly+4);
+  }
+
+  // Draw model polygons
+  models.forEach((m, mi) => {
+    const isSelected = (mi === s5SelectedModel);
+    ctx.beginPath();
+    for(let i=0; i<n; i++) {
+      const angle = (i/n)*Math.PI*2 - Math.PI/2;
+      const r = R * m.vals[i];
+      const x = cx + r*Math.cos(angle);
+      const y = cy + r*Math.sin(angle);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = m.color + (isSelected ? '33' : '18');
+    ctx.strokeStyle = m.color;
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.fill(); ctx.stroke();
+
+    // Points
+    for(let i=0; i<n; i++) {
+      const angle = (i/n)*Math.PI*2 - Math.PI/2;
+      const r = R * m.vals[i];
+      ctx.beginPath(); ctx.arc(cx+r*Math.cos(angle), cy+r*Math.sin(angle), isSelected?5:3, 0, Math.PI*2);
+      ctx.fillStyle = m.color; ctx.fill();
+    }
+  });
+
+  // Legend
+  const legX = 30, legY = 28;
+  models.forEach((m,i) => {
+    ctx.fillStyle = m.color;
+    ctx.fillRect(legX, legY + i*22, 14, 14);
+    ctx.fillStyle = '#333'; ctx.font = (i===s5SelectedModel?'bold ':'')+' 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(m.name, legX+20, legY+i*22+11);
+  });
+}
+
+function s5DrawMemory() {
+  const canvas = document.getElementById('canvas5');
+  const [ctx, W, H] = setupCanvas(canvas, 0, 300);
+  ctx.clearRect(0,0,W,H);
+
+  const models = [
+    { name:'RNN', color:'#ff9800', mem:[1,0.75,0.56,0.42,0.32,0.24,0.18,0.13,0.10,0.07] },
+    { name:'LSTM', color:'#667eea', mem:[1,0.97,0.94,0.91,0.88,0.85,0.82,0.79,0.76,0.73] },
+    { name:'GRU', color:'#48c78e', mem:[1,0.96,0.92,0.88,0.84,0.80,0.76,0.72,0.68,0.64] }
+  ];
+  const steps = 10;
+  const marginL = 60, marginR = 30, marginT = 40, marginB = 50;
+  const gW = W - marginL - marginR;
+  const gH = H - marginT - marginB;
+
+  // Axes
+  ctx.strokeStyle='#aaa'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(marginL,marginT); ctx.lineTo(marginL,marginT+gH); ctx.lineTo(marginL+gW,marginT+gH); ctx.stroke();
+  ctx.fillStyle='#555'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('距离目标的时间步数', marginL+gW/2, marginT+gH+38);
+  ctx.save(); ctx.translate(16, marginT+gH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('记忆保留率', 0, 0); ctx.restore();
+
+  // Y axis labels
+  for(let i=0; i<=4; i++) {
+    const y = marginT + gH - (i/4)*gH;
+    ctx.fillStyle='#aaa'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+    ctx.fillText((i*25)+'%', marginL-6, y+4);
+    ctx.strokeStyle='rgba(150,150,150,0.2)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(marginL,y); ctx.lineTo(marginL+gW,y); ctx.stroke();
+  }
+
+  // Plot lines
+  models.forEach(m => {
+    const isSelected = models.indexOf(m) === s5SelectedModel;
+    ctx.beginPath();
+    m.mem.forEach((v,i) => {
+      const x = marginL + (i/(steps-1))*gW;
+      const y = marginT + gH - v*gH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = m.color; ctx.lineWidth = isSelected ? 3.5 : 1.8;
+    ctx.stroke();
+    // Points
+    m.mem.forEach((v,i) => {
+      const x = marginL + (i/(steps-1))*gW;
+      const y = marginT + gH - v*gH;
+      ctx.beginPath(); ctx.arc(x,y, isSelected?5:3, 0, Math.PI*2);
+      ctx.fillStyle = m.color; ctx.fill();
+    });
+    // X labels
+    m.mem.forEach((v,i) => {
+      ctx.fillStyle='#888'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('t-'+i, marginL+(i/(steps-1))*gW, marginT+gH+16);
+    });
+  });
+
+  // Legend
+  models.forEach((m,i) => {
+    const isSelected = (i === s5SelectedModel);
+    ctx.fillStyle = m.color; ctx.fillRect(W-marginR-90, 20+i*24, 16, 16);
+    ctx.fillStyle='#333'; ctx.font=(isSelected?'bold ':'')+'12px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(m.name, W-marginR-68, 20+i*24+12);
+  });
+
+  ctx.fillStyle='#555'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('记忆保留实验：相同任务下各模型对历史信息的记忆衰减', W/2, 18);
+}
+
+// ==================== Boot ====================
+window.addEventListener('load', () => {
+  s0Init();
+});
+window.addEventListener('resize', () => {
+  initStep(currentStep);
+});
+</script>
+</body>
+</html>

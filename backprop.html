@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>反向传播全解析 — StatQuest 风格</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+    min-height: 100vh;
+    color: #2d3748;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 1300px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 28px 36px 20px;
+    color: #fff;
+  }
+  .header h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+  .header p  { margin-top: 6px; opacity: .85; font-size: .95rem; }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    background: #f0f0f0;
+    height: 6px;
+  }
+  .progress-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transition: width .4s ease;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 24px;
+    background: #f8f9ff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .nav-btn {
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #e2e8f0;
+    color: #4a5568;
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .25s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover  { background: #c3d0f0; }
+  .nav-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(102,126,234,.4);
+  }
+
+  /* ── Step panels ── */
+  .step { display: none; padding: 24px 28px 32px; }
+  .step.active { display: flex; gap: 28px; }
+
+  .viz-panel {
+    flex: 1.1;
+    min-width: 0;
+    background: #f8f9ff;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .info-panel {
+    flex: .9;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  canvas {
+    display: block;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    cursor: crosshair;
+    width: 100%;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn:hover   { opacity: .9; }
+  .btn:active  { transform: scale(.97); }
+  .btn.outline {
+    background: #fff;
+    color: #667eea;
+    border: 2px solid #667eea;
+  }
+  .btn.danger {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: .84rem;
+    color: #4a5568;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #c3d0f0;
+    outline: none;
+    cursor: pointer;
+    width: 120px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #667eea;
+    box-shadow: 0 2px 6px rgba(102,126,234,.5);
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .stat-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: .82rem;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+    min-width: 100px;
+    text-align: center;
+  }
+  .stat-box strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #667eea;
+    font-weight: 700;
+  }
+
+  /* ── Info panel cards ── */
+  .card {
+    background: #f8f9ff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    border-left: 4px solid #667eea;
+  }
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 8px;
+  }
+  .card p, .card li {
+    font-size: .87rem;
+    color: #4a5568;
+    line-height: 1.65;
+  }
+  .card ul { padding-left: 16px; }
+  .card li { margin-bottom: 4px; }
+
+  .formula {
+    background: #1a1a2e;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-family: 'Courier New', monospace;
+    font-size: .85rem;
+    line-height: 1.8;
+    margin-top: 4px;
+  }
+  .formula .hi  { color: #f6d860; font-weight: 700; }
+  .formula .gr  { color: #68d391; }
+  .formula .rd  { color: #fc8181; }
+  .formula .bl  { color: #76e4f7; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  /* ── Step 3 specific ── */
+  .calc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .node-val {
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: .82rem;
+    transition: border-color .3s, background .3s;
+  }
+  .node-val.forward-active { border-color: #667eea; background: #ebf4ff; }
+  .node-val.grad-active    { border-color: #f5576c; background: #fff5f5; }
+  .node-val label {
+    display: block;
+    font-size: .75rem;
+    color: #718096;
+    margin-bottom: 3px;
+  }
+  .node-val .val {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #2d3748;
+  }
+  .node-val .grad {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #e53e3e;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .input-row label { font-size: .82rem; color: #4a5568; }
+  .input-row input[type=number] {
+    width: 72px;
+    border: 2px solid #c3d0f0;
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-size: .85rem;
+    color: #2d3748;
+    outline: none;
+  }
+  .input-row input[type=number]:focus { border-color: #667eea; }
+
+  /* ── Step 4 ── */
+  .mode-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .step.active { flex-direction: column; }
+    .info-panel  { min-width: unset; }
+    .nav-btn     { font-size: .76rem; padding: 6px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🧠 反向传播全解析</h1>
+    <p>StatQuest 风格 · 从损失函数到梯度消失，六步掌握反向传播</p>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav" id="navBar">
+    <button class="nav-btn active" onclick="goStep(0)">Step 0: 损失函数地形图</button>
+    <button class="nav-btn"        onclick="goStep(1)">Step 1: 梯度下降可视化</button>
+    <button class="nav-btn"        onclick="goStep(2)">Step 2: 反向传播基本思想</button>
+    <button class="nav-btn"        onclick="goStep(3)">Step 3: 链式法则 P1</button>
+    <button class="nav-btn"        onclick="goStep(4)">Step 4: 权重更新 P2</button>
+    <button class="nav-btn"        onclick="goStep(5)">Step 5: 梯度消失与爆炸</button>
+  </nav>
+
+  <!-- ════════════════════ STEP 0 ════════════════════ -->
+  <div class="step active" id="step0">
+    <div class="viz-panel">
+      <canvas id="c0" height="300"></canvas>
+      <div class="controls">
+        <button class="btn" onclick="s0_randomize()">🎲 随机初始化</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box">当前权重 w<strong id="s0_w">—</strong></div>
+        <div class="stat-box">当前 Loss<strong id="s0_loss">—</strong></div>
+        <div class="stat-box">最优 w = 1<strong>Loss min = 0.5</strong></div>
+      </div>
+      <p style="font-size:.8rem;color:#718096;">💡 点击曲线任意位置，圆点即跳转</p>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">什么是损失函数？</span>
+        <h3>损失函数 = 衡量"错误"的尺子</h3>
+        <p>模型预测的结果和真实答案之间的差距，就是<b>损失（Loss）</b>。损失越大，模型越差。</p>
+        <p style="margin-top:8px;">以均方误差（MSE）为例：</p>
+        <div class="formula">
+          <span class="hi">L(w)</span> = (ŷ − y)<sup>2</sup><br>
+          <span class="gr">// 预测值与真实值之差的平方</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>为什么要最小化损失？</h3>
+        <ul>
+          <li>损失曲面形如<b>碗状</b>（凸函数）</li>
+          <li>碗底 = 最优权重参数</li>
+          <li>目标：找到让 Loss 最小的 w</li>
+        </ul>
+        <div class="formula">
+          本例曲线：<br>
+          <span class="hi">L(w) = (w−1)² + 0.5</span><br>
+          <span class="gr">// 最小值在 w=1，Loss=0.5</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💡 直觉</h3>
+        <p>想象你站在山上，需要找到谷底（最小值）。但你看不到整个山，只知道脚下的坡度——这就是为什么需要<b>梯度下降</b>！</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ STEP 1 ════════════════════ -->
+  <div class="step" id="step1">
+    <div class="viz-panel">
+      <canvas id="c1" height="300"></canvas>
+      <div class="controls">
+        <button class="btn outline" onclick="s1_step()">单步 →</button>
+        <button class="btn" id="s1_autoBtn" onclick="s1_toggleAuto()">▶ 自动</button>
+        <button class="btn danger" onclick="s1_reset()">↺ 重置</button>
+      </div>
+      <div class="slider-row">
+        <span>学习率 α:</span>
+        <input type="range" id="s1_lr" min="0.01" max="1.5" step="0.01" value="0.3" oninput="s1_lrChange()">
+        <span id="s1_lrVal">0.30</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box">步数<strong id="s1_steps">0</strong></div>
+        <div class="stat-box">当前 w<strong id="s1_w">—</strong></div>
+        <div class="stat-box">当前 Loss<strong id="s1_loss">—</strong></div>
+        <div class="stat-box">梯度 dL/dw<strong id="s1_grad">—</strong></div>
+      </div>
+      <div id="s1_warn" style="font-size:.82rem;color:#e53e3e;font-weight:700;display:none;">
+        ⚠️ 学习率过大！出现震荡，无法收敛
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">梯度下降</span>
+        <h3>核心公式</h3>
+        <div class="formula">
+          <span class="hi">w ← w − α · dL/dw</span><br><br>
+          w：当前权重<br>
+          <span class="bl">α</span>：学习率（步长）<br>
+          <span class="rd">dL/dw</span>：梯度（坡度方向）<br><br>
+          <span class="gr">// 本例：dL/dw = 2(w−1)</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>学习率的影响</h3>
+        <ul>
+          <li><b>α 太小</b>：收敛慢，需很多步</li>
+          <li><b>α 太大</b>：震荡，越跳越远</li>
+          <li><b>α 适中</b>：平滑下降，快速收敛</li>
+        </ul>
+        <p style="margin-top:8px;">拖动滑块试试 α &gt; 1.0 时的震荡效果 👆</p>
+      </div>
+      <div class="card">
+        <h3>切线 = 当前坡度</h3>
+        <p>蓝色切线反映当前位置的斜率，即梯度。梯度为正则向左走，梯度为负则向右走。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ STEP 2 ════════════════════ -->
+  <div class="step" id="step2">
+    <div class="viz-panel">
+      <canvas id="c2" height="380"></canvas>
+      <div class="controls">
+        <button class="btn" onclick="s2_play()">▶ 播放完整过程</button>
+        <button class="btn danger" onclick="s2_reset()">↺ 重置</button>
+      </div>
+      <div id="s2_phase" style="font-size:.88rem;font-weight:700;color:#667eea;min-height:22px;"></div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">前向传播</span>
+        <h3>计算预测值（蓝色）</h3>
+        <p>输入从左到右流经网络，每一层做线性变换 + 激活函数，最终得到输出值。</p>
+        <div class="formula">
+          x → <span class="bl">h = σ(w₁·x)</span> → <span class="hi">ŷ = σ(w₂·h)</span><br>
+          → <span class="rd">L = (ŷ−y)²</span>
+        </div>
+      </div>
+      <div class="card">
+        <span class="badge">反向传播</span>
+        <h3>计算梯度（红色）</h3>
+        <p>误差从右到左传播，利用<b>链式法则</b>将损失对每个权重的梯度逐层计算出来。</p>
+        <div class="formula">
+          ∂L/∂w₂ = <span class="rd">∂L/∂ŷ · ∂ŷ/∂w₂</span><br>
+          ∂L/∂w₁ = <span class="rd">∂L/∂h · ∂h/∂w₁</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>为什么需要两个方向？</h3>
+        <ul>
+          <li>前向：得到预测，才能知道误差</li>
+          <li>反向：知道误差如何"怪罪"每个权重</li>
+          <li>两者结合，才能更新参数</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ STEP 3 ════════════════════ -->
+  <div class="step" id="step3">
+    <div class="viz-panel">
+      <canvas id="c3" height="240"></canvas>
+      <div class="input-row">
+        <label>x =</label>
+        <input type="number" id="s3_x"  value="2"   step="0.1" oninput="s3_userInput()">
+        <label>w₁ =</label>
+        <input type="number" id="s3_w1" value="0.5" step="0.05" oninput="s3_userInput()">
+        <label>w₂ =</label>
+        <input type="number" id="s3_w2" value="0.3" step="0.05" oninput="s3_userInput()">
+        <label>target =</label>
+        <input type="number" id="s3_t"  value="1"   step="0.1" oninput="s3_userInput()">
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="s3_forward()">计算前向 →</button>
+        <button class="btn danger" onclick="s3_backward()">计算梯度 ←</button>
+        <button class="btn outline" onclick="s3_reset()">↺ 重置</button>
+      </div>
+      <div class="calc-grid" id="s3_grid">
+        <div class="node-val" id="nv_x">    <label>输入 x</label>         <span class="val" id="nv_x_v">—</span></div>
+        <div class="node-val" id="nv_z1">   <label>z₁ = w₁·x</label>      <span class="val" id="nv_z1_v">—</span></div>
+        <div class="node-val" id="nv_h">    <label>h = σ(z₁)</label>       <span class="val" id="nv_h_v">—</span> <span class="grad" id="nv_h_g"></span></div>
+        <div class="node-val" id="nv_z2">   <label>z₂ = w₂·h</label>       <span class="val" id="nv_z2_v">—</span></div>
+        <div class="node-val" id="nv_out">  <label>output = σ(z₂)</label>  <span class="val" id="nv_out_v">—</span> <span class="grad" id="nv_out_g"></span></div>
+        <div class="node-val" id="nv_loss"> <label>Loss = (out−t)²</label> <span class="val" id="nv_loss_v">—</span></div>
+        <div class="node-val" id="nv_gw2">  <label>∂L/∂w₂</label>         <span class="grad" id="nv_gw2_v">—</span></div>
+        <div class="node-val" id="nv_gw1">  <label>∂L/∂w₁</label>         <span class="grad" id="nv_gw1_v">—</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">链式法则</span>
+        <h3>∂L/∂w₂ 的展开</h3>
+        <div class="formula">
+          <span class="hi">∂L/∂w₂</span> =<br>
+          &nbsp;&nbsp;<span class="rd">∂L/∂out</span> ·<br>
+          &nbsp;&nbsp;<span class="bl">∂out/∂z₂</span> ·<br>
+          &nbsp;&nbsp;<span class="gr">∂z₂/∂w₂</span><br><br>
+          = <span class="rd">2(out−t)</span> ·<br>
+          &nbsp;&nbsp;<span class="bl">σ(z₂)·(1−σ(z₂))</span> ·<br>
+          &nbsp;&nbsp;<span class="gr">h</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>∂L/∂w₁ 的展开</h3>
+        <div class="formula">
+          <span class="hi">∂L/∂w₁</span> =<br>
+          &nbsp;&nbsp;<span class="rd">∂L/∂h</span> ·<br>
+          &nbsp;&nbsp;<span class="bl">∂h/∂z₁</span> ·<br>
+          &nbsp;&nbsp;<span class="gr">∂z₁/∂w₁</span><br><br>
+          = <span class="rd">(∂L/∂out·∂out/∂z₂·w₂)</span><br>
+          &nbsp;&nbsp;· <span class="bl">σ(z₁)·(1−σ(z₁))</span><br>
+          &nbsp;&nbsp;· <span class="gr">x</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Sigmoid 导数</h3>
+        <div class="formula">
+          σ(z) = 1/(1+e<sup>−z</sup>)<br>
+          <span class="hi">σ′(z) = σ(z)·(1−σ(z))</span><br>
+          <span class="gr">// 最大值约 0.25（z=0时）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ STEP 4 ════════════════════ -->
+  <div class="step" id="step4">
+    <div class="viz-panel">
+      <canvas id="c4" height="340"></canvas>
+      <div class="mode-btns">
+        <button class="btn" id="m_batch" onclick="s4_setMode('batch')">Batch GD</button>
+        <button class="btn outline" id="m_mini"  onclick="s4_setMode('mini')">Mini-batch GD</button>
+        <button class="btn outline" id="m_sgd"   onclick="s4_setMode('sgd')">SGD</button>
+        <button class="btn danger"  onclick="s4_reset()">↺ 重置</button>
+      </div>
+      <div class="slider-row">
+        <span>Batch size:</span>
+        <input type="range" id="s4_bs" min="1" max="20" step="1" value="20" oninput="s4_bsChange()">
+        <span id="s4_bsVal">20 (全量)</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box">模式<strong id="s4_mode">Batch</strong></div>
+        <div class="stat-box">Epoch<strong id="s4_epoch">0</strong></div>
+        <div class="stat-box">Loss<strong id="s4_loss">—</strong></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">三种梯度下降</span>
+        <h3>Batch GD（全批量）</h3>
+        <p>用<b>全部数据</b>算平均梯度再更新。稳定但慢，内存占用大。</p>
+        <div class="formula" style="margin-top:6px;">
+          w ← w − α·<span class="hi">(1/N)Σᵢ∇L(xᵢ)</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Mini-batch GD（推荐✅）</h3>
+        <p>每次用<b>一小批数据</b>（如 32/64 个）算梯度更新，兼顾速度和稳定性。GPU 并行效率高。</p>
+        <div class="formula" style="margin-top:6px;">
+          w ← w − α·<span class="hi">(1/B)Σ_{i∈batch}∇L(xᵢ)</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>SGD（随机梯度下降）</h3>
+        <p>每次只用<b>1 个样本</b>更新，噪声大，跳出局部最优，但收敛不稳定。</p>
+        <div class="formula" style="margin-top:6px;">
+          w ← w − α·<span class="hi">∇L(xᵢ)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ STEP 5 ════════════════════ -->
+  <div class="step" id="step5">
+    <div class="viz-panel">
+      <canvas id="c5" height="340"></canvas>
+      <div class="controls">
+        <button class="btn danger"  id="s5_vBtn" onclick="s5_setMode('vanish')">梯度消失</button>
+        <button class="btn"         id="s5_eBtn" onclick="s5_setMode('explode')">梯度爆炸</button>
+        <button class="btn outline" id="s5_nBtn" onclick="s5_setMode('normal')">正常 (ReLU)</button>
+      </div>
+      <div id="s5_desc" style="font-size:.85rem;padding:10px 14px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;min-height:48px;color:#4a5568;"></div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <span class="badge">梯度消失</span>
+        <h3>为什么会消失？</h3>
+        <p>Sigmoid 导数最大约 <b>0.25</b>，多层相乘后指数衰减：</p>
+        <div class="formula">
+          ∂L/∂w₁ = <span class="rd">δ · σ′·σ′·σ′…</span><br>
+          ≈ δ · <span class="rd">0.25<sup>L</sup></span><br>
+          <span class="gr">// L=10层 → 0.25¹⁰ ≈ 0.000001</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>ReLU 为什么更好？</h3>
+        <div class="formula">
+          ReLU(z) = max(0, z)<br>
+          <span class="hi">ReLU′(z) = 1 (z&gt;0)</span><br>
+          <span class="gr">// 梯度不会衰减！</span>
+        </div>
+        <p style="margin-top:8px;">梯度为 <b>1</b>，乘以多层后不会缩小，靠近输入层的梯度依然有效。</p>
+      </div>
+      <div class="card">
+        <h3>解决方案</h3>
+        <ul>
+          <li>🔀 <b>ReLU / Leaky ReLU</b> 替换 Sigmoid</li>
+          <li>📊 <b>批归一化 (BatchNorm)</b>：标准化每层输入</li>
+          <li>➕ <b>残差连接 (ResNet)</b>：梯度直通公路</li>
+          <li>🎯 <b>Xavier / He 初始化</b>：合理的权重初始值</li>
+          <li>📉 <b>梯度裁剪</b>：防止爆炸（clip gradients）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════
+//  Utilities
+// ═══════════════════════════════════════════════
+const DPR = window.devicePixelRatio || 1;
+
+function setupCanvas(id, logicW, logicH) {
+  const c = document.getElementById(id);
+  c.style.height = logicH + 'px';
+  const rect = c.parentElement.getBoundingClientRect();
+  const w = rect.width - 40; // padding
+  c.style.width  = w + 'px';
+  c.width  = w  * DPR;
+  c.height = logicH * DPR;
+  const ctx = c.getContext('2d');
+  ctx.scale(DPR, DPR);
+  c._lw = w;
+  c._lh = logicH;
+  return { ctx, w, h: logicH };
+}
+
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function sigmoid_d(x) { const s = sigmoid(x); return s * (1 - s); }
+
+// Navigation
+let currentStep = 0;
+const TOTAL = 6;
+
+function goStep(n) {
+  document.getElementById('step' + currentStep).classList.remove('active');
+  document.getElementById('step' + n).classList.add('active');
+  document.querySelectorAll('.nav-btn')[currentStep].classList.remove('active');
+  document.querySelectorAll('.nav-btn')[n].classList.add('active');
+  currentStep = n;
+  document.getElementById('progressBar').style.width = ((n / (TOTAL - 1)) * 100) + '%';
+  initStep(n);
+}
+
+function initStep(n) {
+  if (n === 0) s0_init();
+  if (n === 1) s1_init();
+  if (n === 2) s2_init();
+  if (n === 3) s3_init();
+  if (n === 4) s4_init();
+  if (n === 5) s5_init();
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 0 – Loss Landscape
+// ═══════════════════════════════════════════════
+let s0 = {};
+
+function s0_lossFunc(w) { return (w - 1) ** 2 + 0.5; }
+function s0_w2px(w, W) { return (w + 3) / 6 * (W - 80) + 40; }
+function s0_loss2py(l, H) { return H - 30 - (l / 10) * (H - 60); }
+
+function s0_init() {
+  const { ctx, w, h } = setupCanvas('c0', 600, 300);
+  s0 = { ctx, w, h, W: w, currentW: -2 };
+  s0_draw();
+  document.getElementById('c0').onclick = (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / (rect.width / s0.W);
+    const clickedW = (mx - 40) / (s0.W - 80) * 6 - 3;
+    s0.currentW = Math.max(-3, Math.min(3, clickedW));
+    s0_draw();
+    s0_updateStats();
+  };
+  s0_randomize();
+}
+
+function s0_draw() {
+  const { ctx, W, h } = s0;
+  ctx.clearRect(0, 0, W, h);
+
+  // Axes
+  ctx.strokeStyle = '#cbd5e0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, 10); ctx.lineTo(40, h - 30);
+  ctx.moveTo(40, h - 30); ctx.lineTo(W - 10, h - 30);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#718096';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('w', W - 14, h - 26);
+  ctx.fillText('Loss', 40, 8);
+  ctx.fillText('-3', 40, h - 14);
+  ctx.fillText('0', s0_w2px(0, W), h - 14);
+  ctx.fillText('3', s0_w2px(3, W), h - 14);
+
+  // Y axis ticks
+  for (let l = 0; l <= 9; l += 3) {
+    const y = s0_loss2py(l, h);
+    ctx.fillText(l.toFixed(0), 22, y + 4);
+    ctx.beginPath(); ctx.moveTo(36, y); ctx.lineTo(44, y);
+    ctx.strokeStyle = '#e2e8f0'; ctx.stroke();
+  }
+
+  // Loss curve
+  ctx.beginPath();
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 3;
+  for (let px = 40; px <= W - 10; px++) {
+    const wVal = (px - 40) / (W - 80) * 6 - 3;
+    const lv = s0_lossFunc(wVal);
+    const py = s0_loss2py(lv, h);
+    px === 40 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Minimum marker
+  ctx.strokeStyle = '#48bb78';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  const minX = s0_w2px(1, W);
+  ctx.beginPath(); ctx.moveTo(minX, h - 30); ctx.lineTo(minX, 10);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Current point
+  const cx = s0_w2px(s0.currentW, W);
+  const cy = s0_loss2py(s0_lossFunc(s0.currentW), h);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5576c';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function s0_updateStats() {
+  const l = s0_lossFunc(s0.currentW);
+  document.getElementById('s0_w').textContent    = s0.currentW.toFixed(3);
+  document.getElementById('s0_loss').textContent = l.toFixed(4);
+}
+
+function s0_randomize() {
+  s0.currentW = (Math.random() * 5.8 - 2.9);
+  s0_draw();
+  s0_updateStats();
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 1 – Gradient Descent
+// ═══════════════════════════════════════════════
+let s1 = {};
+
+function s1_lossFunc(w) { return (w - 1) ** 2 + 0.5; }
+function s1_grad(w)     { return 2 * (w - 1); }
+function s1_w2px(w, W)  { return (w + 3) / 6 * (W - 80) + 40; }
+function s1_loss2py(l, h) { return h - 30 - Math.min((l / 12) * (h - 60), h - 60); }
+
+function s1_init() {
+  const { ctx, w, h } = setupCanvas('c1', 600, 300);
+  s1 = { ctx, w, h, W: w, currentW: -2, steps: 0, auto: false, lr: 0.3, rafId: null };
+  s1_draw();
+  s1_updateStats();
+  document.getElementById('s1_lr').value = '0.3';
+  document.getElementById('s1_lrVal').textContent = '0.30';
+}
+
+function s1_draw() {
+  const { ctx, W, h } = s1;
+  ctx.clearRect(0, 0, W, h);
+
+  ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, 10); ctx.lineTo(40, h - 30);
+  ctx.moveTo(40, h - 30); ctx.lineTo(W - 10, h - 30);
+  ctx.stroke();
+
+  ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('w', W - 14, h - 26);
+
+  for (let wt = -3; wt <= 3; wt++) {
+    ctx.fillText(wt, s1_w2px(wt, W), h - 16);
+  }
+
+  // Loss curve
+  ctx.beginPath(); ctx.strokeStyle = '#667eea'; ctx.lineWidth = 3;
+  for (let px = 40; px <= W - 10; px++) {
+    const wVal = (px - 40) / (W - 80) * 6 - 3;
+    const lv   = s1_lossFunc(wVal);
+    const py   = s1_loss2py(lv, h);
+    px === 40 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Tangent line
+  const gVal = s1_grad(s1.currentW);
+  const cx   = s1_w2px(s1.currentW, W);
+  const cy   = s1_loss2py(s1_lossFunc(s1.currentW), h);
+  const scale = (h - 60) / 12;
+  const dx = 40, dy = gVal * dx / ((W - 80) / 6) * scale;
+  ctx.beginPath(); ctx.strokeStyle = '#f6d860'; ctx.lineWidth = 2;
+  ctx.moveTo(cx - dx, cy + dy);
+  ctx.lineTo(cx + dx, cy - dy);
+  ctx.stroke();
+
+  // Point
+  ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5576c'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function s1_updateStats() {
+  const l = s1_lossFunc(s1.currentW);
+  const g = s1_grad(s1.currentW);
+  document.getElementById('s1_steps').textContent = s1.steps;
+  document.getElementById('s1_w').textContent     = s1.currentW.toFixed(4);
+  document.getElementById('s1_loss').textContent  = l.toFixed(5);
+  document.getElementById('s1_grad').textContent  = g.toFixed(4);
+  document.getElementById('s1_warn').style.display = s1.lr > 1.0 ? '' : 'none';
+}
+
+function s1_step() {
+  const g = s1_grad(s1.currentW);
+  s1.currentW = s1.currentW - s1.lr * g;
+  s1.currentW = Math.max(-3.5, Math.min(3.5, s1.currentW));
+  s1.steps++;
+  s1_draw();
+  s1_updateStats();
+}
+
+function s1_toggleAuto() {
+  s1.auto = !s1.auto;
+  document.getElementById('s1_autoBtn').textContent = s1.auto ? '⏸ 暂停' : '▶ 自动';
+  if (s1.auto) s1_autoRun();
+}
+
+function s1_autoRun() {
+  if (!s1.auto) return;
+  if (Math.abs(s1_grad(s1.currentW)) < 0.0001 && s1.lr <= 1.0) {
+    s1.auto = false;
+    document.getElementById('s1_autoBtn').textContent = '▶ 自动';
+    return;
+  }
+  s1_step();
+  setTimeout(s1_autoRun, 150);
+}
+
+function s1_reset() {
+  s1.auto = false;
+  document.getElementById('s1_autoBtn').textContent = '▶ 自动';
+  s1.currentW = (Math.random() * 5 - 2.5);
+  s1.steps = 0;
+  s1_draw();
+  s1_updateStats();
+}
+
+function s1_lrChange() {
+  const v = parseFloat(document.getElementById('s1_lr').value);
+  s1.lr = v;
+  document.getElementById('s1_lrVal').textContent = v.toFixed(2);
+  s1_draw();
+  s1_updateStats();
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 2 – Backprop Idea
+// ═══════════════════════════════════════════════
+let s2 = {};
+
+function s2_init() {
+  const { ctx, w, h } = setupCanvas('c2', 600, 380);
+  s2 = {
+    ctx, w, h, W: w,
+    phase: -1,  // -1=idle, 0=forward, 1=loss, 2=backward
+    animT: 0,
+    rafId: null,
+    flowParticles: [],
+  };
+  s2_draw(0);
+}
+
+const S2_NODES = [
+  { id: 'x',      label: 'x',      sublabel: '输入',     x: 0.08 },
+  { id: 'h',      label: 'h',      sublabel: 'sigmoid',  x: 0.33 },
+  { id: 'out',    label: 'ŷ',      sublabel: 'sigmoid',  x: 0.58 },
+  { id: 'L',      label: 'L',      sublabel: '损失',     x: 0.83 },
+];
+const S2_EDGES = [
+  { from: 0, to: 1, label: 'w₁' },
+  { from: 1, to: 2, label: 'w₂' },
+  { from: 2, to: 3, label: '(ŷ−y)²' },
+];
+
+function s2_nodePos(idx, W, H) {
+  return { x: S2_NODES[idx].x * W, y: H * 0.45 };
+}
+
+function s2_draw(t) {
+  const { ctx, W, h, phase, flowParticles } = s2;
+  ctx.clearRect(0, 0, W, h);
+
+  // Background hint text
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('点击「播放完整过程」查看动画', W / 2, h - 10);
+
+  // Edges
+  S2_EDGES.forEach((e, i) => {
+    const a = s2_nodePos(e.from, W, h);
+    const b = s2_nodePos(e.to,   W, h);
+    ctx.beginPath();
+    ctx.strokeStyle = '#cbd5e0';
+    ctx.lineWidth = 3;
+    ctx.moveTo(a.x + 32, a.y); ctx.lineTo(b.x - 32, b.y);
+    ctx.stroke();
+
+    // Edge label
+    const mx = (a.x + b.x) / 2, my = a.y - 18;
+    ctx.fillStyle = '#764ba2'; ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(e.label, mx, my);
+  });
+
+  // Flow particles
+  flowParticles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+
+  // Nodes
+  S2_NODES.forEach((n, i) => {
+    const pos = s2_nodePos(i, W, h);
+    let fill = '#fff', stroke = '#cbd5e0', textCol = '#2d3748';
+
+    if (phase === 0) { // forward
+      fill = '#ebf4ff'; stroke = '#667eea';
+    } else if (phase === 1) { // loss flash
+      if (n.id === 'L' || n.id === 'out') { fill = '#fff5f5'; stroke = '#f5576c'; }
+    } else if (phase === 2) { // backward
+      fill = '#fff5f5'; stroke = '#f5576c';
+    }
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 32, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke();
+
+    ctx.fillStyle = '#2d3748'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(n.label, pos.x, pos.y + 6);
+    ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif';
+    ctx.fillText(n.sublabel, pos.x, pos.y + 22);
+  });
+
+  // Phase label
+  ctx.fillStyle = '#667eea'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+  const labels = ['① 前向传播（蓝色）→', '② 计算损失 Loss ⚡', '③ 反向传播（红色）←'];
+  if (phase >= 0) ctx.fillText(labels[phase] || '', W / 2, h - 32);
+}
+
+function s2_reset() {
+  clearTimeout(s2.timer1); clearTimeout(s2.timer2); clearTimeout(s2.timer3);
+  s2.phase = -1;
+  s2.flowParticles = [];
+  s2_draw(0);
+  document.getElementById('s2_phase').textContent = '';
+}
+
+function s2_play() {
+  s2_reset();
+  // Phase 0: forward
+  setTimeout(() => {
+    s2.phase = 0;
+    document.getElementById('s2_phase').textContent = '① 前向传播中…';
+    s2_animateFlow(0, 1, 2, '#667eea', () => {
+      s2_animateFlow(1, 2, 3, '#667eea', () => {
+        // Phase 1: loss
+        setTimeout(() => {
+          s2.phase = 1;
+          document.getElementById('s2_phase').textContent = '② 计算损失，红色闪烁';
+          s2_draw(0);
+          let blink = 0;
+          const blinkInterval = setInterval(() => {
+            blink++;
+            s2.phase = blink % 2 === 0 ? 1 : -1;
+            s2_draw(0);
+            if (blink >= 6) {
+              clearInterval(blinkInterval);
+              s2.phase = 1;
+              // Phase 2: backward
+              setTimeout(() => {
+                s2.phase = 2;
+                document.getElementById('s2_phase').textContent = '③ 反向传播梯度…';
+                s2_animateFlow(3, 2, 1, '#f5576c', () => {
+                  s2_animateFlow(2, 1, 0, '#f5576c', () => {
+                    document.getElementById('s2_phase').textContent = '✅ 完成！权重可以更新了';
+                  });
+                });
+              }, 600);
+            }
+          }, 200);
+        }, 300);
+      });
+    });
+  }, 100);
+}
+
+function s2_animateFlow(fromNode, toNode, _skip, color, done) {
+  const { W, h } = s2;
+  const a = s2_nodePos(fromNode, W, h);
+  const b = s2_nodePos(toNode,   W, h);
+  const startX = a.x + (fromNode < toNode ? 32 : -32);
+  const endX   = b.x - (fromNode < toNode ? 32 : -32);
+  const y = a.y;
+
+  let progress = 0;
+  function frame() {
+    progress += 0.025;
+    const px = startX + (endX - startX) * Math.min(progress, 1);
+    s2.flowParticles = [{ x: px, y, color }];
+    s2_draw(0);
+    if (progress < 1) requestAnimationFrame(frame);
+    else { s2.flowParticles = []; s2_draw(0); if (done) done(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 3 – Chain Rule Calculator
+// ═══════════════════════════════════════════════
+let s3 = { forwardDone: false, gradDone: false };
+
+function s3_getInputs() {
+  return {
+    x:  parseFloat(document.getElementById('s3_x').value)  || 2,
+    w1: parseFloat(document.getElementById('s3_w1').value) || 0.5,
+    w2: parseFloat(document.getElementById('s3_w2').value) || 0.3,
+    t:  parseFloat(document.getElementById('s3_t').value)  || 1,
+  };
+}
+
+function s3_compute(x, w1, w2, t) {
+  const z1  = w1 * x;
+  const h   = sigmoid(z1);
+  const z2  = w2 * h;
+  const out = sigmoid(z2);
+  const loss = (out - t) ** 2;
+
+  // Gradients
+  const dL_dout = 2 * (out - t);
+  const dout_dz2 = sigmoid_d(z2);
+  const dz2_dw2  = h;
+  const dz2_dh   = w2;
+  const dh_dz1   = sigmoid_d(z1);
+  const dz1_dw1  = x;
+
+  const dL_dw2 = dL_dout * dout_dz2 * dz2_dw2;
+  const dL_dh  = dL_dout * dout_dz2 * dz2_dh;
+  const dL_dw1 = dL_dh   * dh_dz1  * dz1_dw1;
+
+  return { z1, h, z2, out, loss, dL_dout, dout_dz2, dL_dw2, dL_dh, dh_dz1, dL_dw1 };
+}
+
+function s3_init() {
+  const { ctx, w, h } = setupCanvas('c3', 600, 240);
+  s3.ctx = ctx; s3.w = w; s3.h = h; s3.W = w;
+  s3.forwardDone = false; s3.gradDone = false;
+  s3_resetDisplays();
+  s3_drawNetwork();
+}
+
+function s3_drawNetwork() {
+  const { ctx, W, h } = s3;
+  ctx.clearRect(0, 0, W, h);
+
+  const nodes = [
+    { label: 'x',    sub: 'input',    x: 0.05 },
+    { label: 'z₁',   sub: 'w₁·x',    x: 0.22 },
+    { label: 'h',    sub: 'σ(z₁)',   x: 0.39 },
+    { label: 'z₂',   sub: 'w₂·h',    x: 0.56 },
+    { label: 'ŷ',    sub: 'σ(z₂)',   x: 0.73 },
+    { label: 'L',    sub: '(ŷ−t)²',  x: 0.90 },
+  ];
+  const ny = h * 0.45;
+  const r = 26;
+
+  // Edges
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = nodes[i], b = nodes[i + 1];
+    const ax = a.x * W + r, bx = b.x * W - r;
+    ctx.beginPath(); ctx.strokeStyle = s3.forwardDone ? '#667eea' : '#cbd5e0';
+    ctx.lineWidth = 2;
+    ctx.moveTo(ax, ny); ctx.lineTo(bx, ny); ctx.stroke();
+
+    if (s3.gradDone) {
+      // Backward arrows
+      ctx.beginPath(); ctx.strokeStyle = '#f5576c'; ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.moveTo(bx, ny + 12); ctx.lineTo(ax, ny + 12); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Nodes
+  nodes.forEach((n, i) => {
+    const nx = n.x * W;
+    const isOutput = i === 5;
+    ctx.beginPath(); ctx.arc(nx, ny, r, 0, Math.PI * 2);
+    ctx.fillStyle = s3.forwardDone ? (s3.gradDone ? '#fff0f0' : '#ebf4ff') : '#fff';
+    ctx.fill();
+    ctx.strokeStyle = s3.forwardDone ? (s3.gradDone ? '#f5576c' : '#667eea') : '#cbd5e0';
+    ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.fillStyle = '#2d3748'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(n.label, nx, ny + 5);
+    ctx.fillStyle = '#718096'; ctx.font = '10px sans-serif';
+    ctx.fillText(n.sub, nx, ny + r + 13);
+  });
+}
+
+function s3_resetDisplays() {
+  ['x', 'z1', 'h', 'z2', 'out', 'loss'].forEach(id => {
+    const el = document.getElementById('nv_' + id + '_v');
+    if (el) el.textContent = '—';
+  });
+  ['h_g', 'out_g', 'gw2_v', 'gw1_v'].forEach(id => {
+    const el = document.getElementById('nv_' + id);
+    if (el) el.textContent = '';
+  });
+  document.querySelectorAll('.node-val').forEach(el => {
+    el.classList.remove('forward-active', 'grad-active');
+  });
+}
+
+function s3_forward() {
+  const { x, w1, w2, t } = s3_getInputs();
+  const res = s3_compute(x, w1, w2, t);
+  s3.forwardDone = true;
+  s3.gradDone = false;
+
+  const steps = [
+    ['nv_x',    () => { document.getElementById('nv_x_v').textContent    = x.toFixed(4); }],
+    ['nv_z1',   () => { document.getElementById('nv_z1_v').textContent   = res.z1.toFixed(4); }],
+    ['nv_h',    () => { document.getElementById('nv_h_v').textContent    = res.h.toFixed(4); }],
+    ['nv_z2',   () => { document.getElementById('nv_z2_v').textContent   = res.z2.toFixed(4); }],
+    ['nv_out',  () => { document.getElementById('nv_out_v').textContent  = res.out.toFixed(4); }],
+    ['nv_loss', () => { document.getElementById('nv_loss_v').textContent = res.loss.toFixed(6); }],
+  ];
+
+  let i = 0;
+  function next() {
+    if (i > 0) document.getElementById(steps[i-1][0]).classList.remove('forward-active');
+    if (i >= steps.length) { s3_drawNetwork(); return; }
+    document.getElementById(steps[i][0]).classList.add('forward-active');
+    steps[i][1]();
+    i++;
+    setTimeout(next, 350);
+  }
+  next();
+  s3_drawNetwork();
+}
+
+function s3_backward() {
+  if (!s3.forwardDone) { s3_forward(); setTimeout(s3_backward, steps_total * 360 + 200); return; }
+  const { x, w1, w2, t } = s3_getInputs();
+  const res = s3_compute(x, w1, w2, t);
+  s3.gradDone = true;
+
+  const steps = [
+    ['nv_out', () => { document.getElementById('nv_out_g').textContent  = '∂L/∂ŷ=' + res.dL_dout.toFixed(4); }],
+    ['nv_h',   () => { document.getElementById('nv_h_g').textContent   = '∂L/∂h='  + res.dL_dh.toFixed(4); }],
+    ['nv_gw2', () => { document.getElementById('nv_gw2_v').textContent = res.dL_dw2.toFixed(6); }],
+    ['nv_gw1', () => { document.getElementById('nv_gw1_v').textContent = res.dL_dw1.toFixed(6); }],
+  ];
+
+  let i = 0;
+  function next() {
+    if (i > 0) document.getElementById(steps[i-1][0]).classList.remove('grad-active');
+    if (i >= steps.length) { s3_drawNetwork(); return; }
+    document.getElementById(steps[i][0]).classList.add('grad-active');
+    steps[i][1]();
+    i++;
+    setTimeout(next, 400);
+  }
+  next();
+  s3_drawNetwork();
+}
+
+function s3_reset() {
+  s3.forwardDone = false; s3.gradDone = false;
+  s3_resetDisplays();
+  s3_drawNetwork();
+}
+
+function s3_userInput() {
+  s3.forwardDone = false; s3.gradDone = false;
+  s3_resetDisplays();
+  s3_drawNetwork();
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 4 – Weight Update (Mini-batch)
+// ═══════════════════════════════════════════════
+let s4 = {};
+
+function s4_init() {
+  const { ctx, w, h } = setupCanvas('c4', 600, 340);
+  s4 = {
+    ctx, w, h, W: w,
+    mode: 'batch',
+    batchSize: 20,
+    epoch: 0,
+    loss: 1.0,
+    rafId: null,
+    trajectory: [],
+    // True optimum in (w1, w2) space
+    w1: -2.0, w2: -2.0,
+    samples: Array.from({length: 20}, (_, i) => ({
+      x: (Math.random() * 4 - 2),
+      y: (Math.random() * 4 - 2),
+    })),
+  };
+  s4_setMode('batch');
+}
+
+function s4_setMode(mode) {
+  s4.mode = mode;
+  ['batch', 'mini', 'sgd'].forEach(m => {
+    document.getElementById('m_' + m).className = 'btn ' + (m === mode ? '' : 'outline');
+  });
+  document.getElementById('s4_mode').textContent = {
+    batch: 'Batch GD', mini: 'Mini-batch', sgd: 'SGD'
+  }[mode];
+  const bs = { batch: 20, mini: 8, sgd: 1 }[mode];
+  s4.batchSize = bs;
+  document.getElementById('s4_bs').value = bs;
+  document.getElementById('s4_bsVal').textContent = bs === 20 ? '20 (全量)' : bs === 1 ? '1 (SGD)' : bs + '';
+  s4_reset();
+}
+
+function s4_bsChange() {
+  const v = parseInt(document.getElementById('s4_bs').value);
+  s4.batchSize = v;
+  document.getElementById('s4_bsVal').textContent = v >= 20 ? v + ' (全量)' : v === 1 ? '1 (SGD)' : v + '';
+  s4.mode = v >= 20 ? 'batch' : v === 1 ? 'sgd' : 'mini';
+  document.getElementById('s4_mode').textContent = {batch:'Batch GD', mini:'Mini-batch', sgd:'SGD'}[s4.mode];
+  s4_reset();
+}
+
+function s4_reset() {
+  if (s4.rafId) cancelAnimationFrame(s4.rafId);
+  s4.w1 = -2 + Math.random() * 0.4 - 0.2;
+  s4.w2 = -2 + Math.random() * 0.4 - 0.2;
+  s4.epoch = 0;
+  s4.loss = 8;
+  s4.trajectory = [{ w1: s4.w1, w2: s4.w2 }];
+  s4_draw();
+  s4_animate();
+}
+
+function s4_lossFn(w1, w2) {
+  return (w1 - 1) ** 2 + (w2 - 1) ** 2;
+}
+
+function s4_animate() {
+  if (s4.epoch >= 80) return;
+  const lr = { batch: 0.12, mini: 0.14, sgd: 0.08 }[s4.mode];
+  const noise = { batch: 0, mini: 0.15, sgd: 0.45 }[s4.mode];
+
+  const g1 = 2 * (s4.w1 - 1) + (Math.random() - 0.5) * noise;
+  const g2 = 2 * (s4.w2 - 1) + (Math.random() - 0.5) * noise;
+  s4.w1 -= lr * g1;
+  s4.w2 -= lr * g2;
+  s4.epoch++;
+  s4.loss = s4_lossFn(s4.w1, s4.w2);
+  s4.trajectory.push({ w1: s4.w1, w2: s4.w2 });
+
+  document.getElementById('s4_epoch').textContent = s4.epoch;
+  document.getElementById('s4_loss').textContent  = s4.loss.toFixed(4);
+
+  s4_draw();
+  s4.rafId = setTimeout(s4_animate, 80);
+}
+
+function s4_w2px(w, W) { return (w + 3) / 6 * (W - 60) + 30; }
+function s4_w2py(w, H) { return H - 30 - (w + 3) / 6 * (H - 60); }
+
+function s4_draw() {
+  const { ctx, W, h, mode, trajectory } = s4;
+  ctx.clearRect(0, 0, W, h);
+
+  // Draw contour circles (loss landscape)
+  const cx = s4_w2px(1, W), cy = s4_w2py(1, h);
+  for (let r = 1; r <= 5; r++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * (Math.min(W, h) / 14), 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(102,126,234,${0.1 + r * 0.04})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Axes labels
+  ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('w₁', W - 20, h - 12);
+  ctx.fillText('w₂', 20, 14);
+  ctx.fillText('★', cx, cy + 5);
+
+  // Trajectory
+  const colors = { batch: '#667eea', mini: '#f6d860', sgd: '#f5576c' };
+  const col = colors[mode];
+  if (trajectory.length > 1) {
+    ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.moveTo(s4_w2px(trajectory[0].w1, W), s4_w2py(trajectory[0].w2, h));
+    trajectory.forEach(pt => ctx.lineTo(s4_w2px(pt.w1, W), s4_w2py(pt.w2, h)));
+    ctx.stroke();
+  }
+
+  // Samples
+  s4.samples.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s4_w2px(s.x, W), s4_w2py(s.y, h), 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(102,126,234,0.3)'; ctx.fill();
+  });
+
+  // Current point
+  const px = s4_w2px(s4.w1, W), py = s4_w2py(s4.w2, h);
+  ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2);
+  ctx.fillStyle = col; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 5 – Vanishing / Exploding Gradients
+// ═══════════════════════════════════════════════
+let s5 = { mode: 'vanish', rafId: null, animPhase: 0 };
+
+const S5_MODES = {
+  vanish: {
+    title: '梯度消失 (Sigmoid + 深层网络)',
+    desc: '使用 Sigmoid 激活函数，每层梯度乘以 σ′≤0.25，10层后梯度约为 0.25¹⁰ ≈ 0.0000001，靠近输入层的权重几乎无法更新。',
+    bars: Array.from({length:10}, (_,i) => Math.pow(0.25, i) * 100),
+    color: '#f5576c',
+  },
+  explode: {
+    title: '梯度爆炸 (权重初始化过大)',
+    desc: '权重初始化过大（如均值为2）时，梯度在反向传播中指数增大，导致权重更新失控，Loss 变成 NaN。',
+    bars: Array.from({length:10}, (_,i) => Math.min(Math.pow(1.8, i), 300)),
+    color: '#f6d860',
+  },
+  normal: {
+    title: '正常梯度 (ReLU + 合理初始化)',
+    desc: 'ReLU 激活函数的梯度为 1（正区间），配合 He 初始化，梯度在各层间保持稳定传播，网络有效学习。',
+    bars: Array.from({length:10}, () => 80 + Math.random() * 30),
+    color: '#68d391',
+  },
+};
+
+function s5_init() {
+  const { ctx, w, h } = setupCanvas('c5', 600, 340);
+  s5.ctx = ctx; s5.w = w; s5.h = h; s5.W = w;
+  s5_setMode('vanish');
+}
+
+function s5_setMode(mode) {
+  s5.mode = mode;
+  ['v', 'e', 'n'].forEach((k, i) => {
+    const ids = ['s5_vBtn', 's5_eBtn', 's5_nBtn'];
+    const modes = ['vanish', 'explode', 'normal'];
+    document.getElementById(ids[i]).className = 'btn ' + (modes[i] === mode ? (i===0?'danger':i===2?'outline':'') : 'outline');
+  });
+  document.getElementById('s5_desc').textContent = S5_MODES[mode].desc;
+  s5_animateBars();
+}
+
+function s5_animateBars() {
+  if (s5.rafId) cancelAnimationFrame(s5.rafId);
+  s5.animPhase = 0;
+  function frame() {
+    s5.animPhase = Math.min(s5.animPhase + 0.05, 1);
+    s5_draw(s5.animPhase);
+    if (s5.animPhase < 1) s5.rafId = requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function s5_draw(phase) {
+  const { ctx, W, h, mode } = s5;
+  const cfg = S5_MODES[mode];
+  ctx.clearRect(0, 0, W, h);
+
+  const layers = 10;
+  const padL = 50, padR = 20, padT = 40, padB = 60;
+  const plotW = W - padL - padR;
+  const plotH = h - padT - padB;
+  const barW  = plotW / layers * 0.55;
+  const maxBar = mode === 'explode' ? 300 : 110;
+
+  // Title
+  ctx.fillStyle = '#2d3748'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(cfg.title, W / 2, 22);
+
+  // Axis labels
+  ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('← 反向传播方向（靠近输入层）', W / 2, h - 8);
+
+  // Y axis
+  ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH);
+  ctx.moveTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+  ctx.stroke();
+
+  ctx.fillStyle = '#718096'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText('梯度幅度', padL - 4, padT + 4);
+
+  // Bars
+  cfg.bars.forEach((rawH, i) => {
+    const bh = rawH / maxBar * plotH * phase;
+    const bx = padL + (i + 0.225) * (plotW / layers);
+    const by = padT + plotH - bh;
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
+    grad.addColorStop(0, cfg.color);
+    grad.addColorStop(1, cfg.color + '66');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, barW, bh, 4);
+    ctx.fill();
+
+    // Layer label
+    ctx.fillStyle = '#4a5568'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('L' + (layers - i), bx + barW / 2, padT + plotH + 14);
+  });
+
+  // Value labels on bars
+  if (phase === 1) {
+    cfg.bars.forEach((rawH, i) => {
+      const bx = padL + (i + 0.225) * (plotW / layers);
+      const by = padT + plotH - rawH / maxBar * plotH;
+      ctx.fillStyle = cfg.color;
+      ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+      const v = rawH / 100;
+      if (rawH > 5) ctx.fillText(v > 1 ? v.toFixed(1) : v.toFixed(3), bx + barW / 2, by - 3);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════
+window.addEventListener('load', () => {
+  s0_init();
+});
+
+window.addEventListener('resize', () => {
+  initStep(currentStep);
+});
+</script>
+</body>
+</html>

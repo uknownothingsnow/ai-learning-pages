@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>张量与 PyTorch 实战 — StatQuest 风格教程</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  min-height: 100vh;
+  color: #e0e0f0;
+  overflow-x: hidden;
+}
+
+/* ===== HEADER ===== */
+.site-header {
+  text-align: center;
+  padding: 36px 20px 16px;
+}
+.site-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea, #a78bfa, #f6d860);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
+}
+.site-header p {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  margin-top: 6px;
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-wrap {
+  max-width: 1300px;
+  margin: 0 auto 0;
+  padding: 0 24px;
+}
+.progress-bar-bg {
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  height: 6px;
+  margin-bottom: 0;
+}
+.progress-bar-fill {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.5s ease;
+  width: 0%;
+}
+
+/* ===== NAV ===== */
+.nav-wrap {
+  max-width: 1300px;
+  margin: 18px auto 10px;
+  padding: 0 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.nav-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(102,126,234,0.35);
+  background: rgba(255,255,255,0.05);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+.nav-btn:hover { background: rgba(102,126,234,0.18); color: #c4b5fd; }
+.nav-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(102,126,234,0.45);
+}
+
+/* ===== MAIN CONTAINER ===== */
+.main-container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+/* ===== STEP PANEL ===== */
+.step-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.step-panel.active { display: flex; gap: 24px; margin-top: 16px; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ===== VIZ PANEL ===== */
+.viz-panel {
+  flex: 1.4;
+  background: rgba(255,255,255,0.04);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 28px;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+.viz-panel h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-badge {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+/* ===== INFO PANEL ===== */
+.info-panel {
+  flex: 0 0 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.info-card {
+  background: rgba(255,255,255,0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 20px;
+}
+.info-card h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.info-card p, .info-card li {
+  font-size: 0.83rem;
+  line-height: 1.65;
+  color: #cbd5e1;
+}
+.info-card ul { padding-left: 16px; }
+.info-card li { margin-bottom: 4px; }
+
+/* ===== FORMULA BOX ===== */
+.formula-box {
+  background: #1a1a2e;
+  border: 1px solid rgba(246,216,96,0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 10px 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  color: #f6d860;
+  line-height: 1.7;
+}
+
+/* ===== CONTROL BUTTONS ===== */
+.ctrl-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.ctrl-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(102,126,234,0.4);
+  background: rgba(102,126,234,0.12);
+  color: #a5b4fc;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ctrl-btn:hover { background: rgba(102,126,234,0.28); color: #fff; }
+.ctrl-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ==========================================
+   STEP 0 — TENSOR VIZ
+========================================== */
+#tensor-scene {
+  flex: 1;
+  perspective: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-top: 8px;
+  min-height: 340px;
+}
+.tensor-3d-wrap {
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+/* 0D scalar */
+.t0d { display: flex; justify-content: center; align-items: center; }
+.t-cell {
+  width: 54px; height: 54px;
+  background: linear-gradient(135deg, #667eea33, #764ba233);
+  border: 1.5px solid #667eea88;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.88rem; font-weight: 700; color: #f6d860;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  user-select: none;
+}
+.t-cell:hover { background: rgba(102,126,234,0.4); transform: scale(1.1); }
+.t-cell.highlighted { background: rgba(246,216,96,0.25); border-color: #f6d860; }
+
+/* 1D */
+.t1d { display: flex; gap: 6px; }
+
+/* 2D */
+.t2d { display: flex; flex-direction: column; gap: 5px; }
+.t2d-row { display: flex; gap: 5px; }
+.t2d .t-cell { width: 44px; height: 44px; font-size: 0.75rem; }
+
+/* 3D layers */
+.t3d-container {
+  position: relative;
+  transform-style: preserve-3d;
+}
+.t3d-layer {
+  position: absolute;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.t3d-layer .t2d-row { gap: 4px; }
+.t3d-layer .t-cell { width: 38px; height: 38px; font-size: 0.68rem; }
+
+/* 4D */
+.t4d-container {
+  display: flex; gap: 20px;
+  transform-style: preserve-3d;
+}
+.t4d-item { transform-style: preserve-3d; position: relative; }
+.t4d-layer {
+  position: absolute;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.t4d-layer .t2d-row { gap: 3px; }
+.t4d-layer .t-cell { width: 28px; height: 28px; font-size: 0.58rem; }
+
+.tensor-info-bar {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+.tensor-info-bar strong { color: #f6d860; }
+
+.cell-tooltip {
+  position: fixed;
+  background: #1a1a2e;
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: #f6d860;
+  pointer-events: none;
+  z-index: 1000;
+  display: none;
+}
+
+/* ==========================================
+   STEP 1 — MATRIX OPS
+========================================== */
+.matrix-op-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.matrices-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+.matrix-wrap {
+  display: flex; flex-direction: column; align-items: center;
+}
+.matrix-label {
+  font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;
+}
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  gap: 4px;
+}
+.matrix-grid .t-cell {
+  width: 46px; height: 46px;
+  font-size: 0.8rem;
+}
+.op-sign {
+  font-size: 1.8rem; color: #f6d860; font-weight: 700; margin: 0 4px;
+}
+.step-indicator {
+  font-size: 0.8rem; color: #667eea; text-align: center; margin-top: 10px; font-weight: 600;
+}
+
+/* broadcast */
+.broadcast-area {
+  margin-top: 16px;
+}
+.broadcast-label {
+  font-size: 0.78rem; color: #a78bfa; margin-bottom: 8px; text-align: center; font-weight: 600;
+}
+.broadcast-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+}
+.bcast-matrix {
+  display: flex; flex-direction: column; gap: 3px;
+  transition: all 0.4s;
+}
+.bcast-matrix .bcast-row { display: flex; gap: 3px; }
+.bcast-cell {
+  width: 36px; height: 36px;
+  background: rgba(102,126,234,0.15);
+  border: 1px solid rgba(102,126,234,0.4);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 600; color: #a5b4fc;
+  transition: all 0.3s;
+}
+.bcast-cell.expanded {
+  background: rgba(246,216,96,0.18);
+  border-color: #f6d860;
+  color: #f6d860;
+}
+
+/* ==========================================
+   STEP 2 — CODE VIZ
+========================================== */
+.code-block {
+  background: #111827;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  flex: 1;
+  overflow: auto;
+}
+.code-line {
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  line-height: 1.6;
+  white-space: pre;
+  display: block;
+}
+.code-line:hover { background: rgba(102,126,234,0.15); }
+.code-line.selected { background: rgba(102,126,234,0.28); outline: 1.5px solid #667eea; }
+.kw { color: #c792ea; }
+.fn { color: #82aaff; }
+.str { color: #c3e88d; }
+.num { color: #f78c6c; }
+.cm { color: #546e7a; }
+.op { color: #89ddff; }
+
+.code-viz-area {
+  margin-top: 14px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* network diagram */
+.nn-diagram {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nn-layer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.nn-node {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid #667eea;
+  background: rgba(102,126,234,0.2);
+  transition: all 0.3s;
+}
+.nn-node.active-node {
+  background: rgba(246,216,96,0.35);
+  border-color: #f6d860;
+  box-shadow: 0 0 12px rgba(246,216,96,0.5);
+}
+.nn-arrow { font-size: 1.2rem; color: #667eea; }
+.nn-label { font-size: 0.68rem; color: #94a3b8; text-align: center; margin-top: 4px; }
+
+/* ReLU curve (canvas-based but small) */
+#relu-canvas { border-radius: 8px; background: #111827; }
+
+/* ==========================================
+   STEP 3 — AUTOGRAD
+========================================== */
+.autograd-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#autograd-canvas {
+  border-radius: 12px;
+  background: rgba(0,0,0,0.2);
+}
+
+/* ==========================================
+   STEP 4 — TRAINING LOOP
+========================================== */
+.training-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.flowchart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.flow-node {
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(102,126,234,0.35);
+  background: rgba(102,126,234,0.1);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 200px;
+  text-align: center;
+  position: relative;
+}
+.flow-node:hover { background: rgba(102,126,234,0.22); }
+.flow-node.active-flow {
+  background: linear-gradient(135deg, #667eea33, #764ba233);
+  border-color: #667eea;
+  color: #fff;
+  box-shadow: 0 0 18px rgba(102,126,234,0.4);
+}
+.flow-arrow {
+  font-size: 1.3rem; color: #667eea; line-height: 1;
+}
+.flow-loop-arrow {
+  font-size: 0.72rem; color: #94a3b8; text-align: center;
+}
+.epoch-counter {
+  font-size: 1rem; font-weight: 700;
+  color: #f6d860;
+  text-align: center;
+}
+#training-canvas {
+  border-radius: 10px;
+  background: #111827;
+}
+
+/* ==========================================
+   STEP 5 — HYPERPARAMS
+========================================== */
+#hyper-canvas {
+  border-radius: 12px;
+  background: #111827;
+  cursor: crosshair;
+}
+.hyper-legend {
+  display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; justify-content: center;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; color: #94a3b8; cursor: pointer;
+  padding: 4px 10px; border-radius: 6px; transition: background 0.2s;
+}
+.legend-item:hover { background: rgba(255,255,255,0.07); }
+.legend-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* ===== TOOLTIP POPUP ===== */
+.info-tooltip {
+  background: #1a1a2e;
+  border: 1px solid rgba(102,126,234,0.5);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin-top: 10px;
+  line-height: 1.6;
+  min-height: 40px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .step-panel.active { flex-direction: column; }
+  .info-panel { flex: none; width: 100%; }
+  .viz-panel { min-height: 380px; }
+  .site-header h1 { font-size: 1.5rem; }
+  .nav-btn { font-size: 0.72rem; padding: 6px 12px; }
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.4); border-radius: 3px; }
+
+/* ===== BADGES / TAGS ===== */
+.tag {
+  display: inline-block;
+  background: rgba(102,126,234,0.18);
+  color: #a5b4fc;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+.tag.yellow { background: rgba(246,216,96,0.15); color: #f6d860; }
+.tag.green { background: rgba(52,211,153,0.15); color: #34d399; }
+.tag.red { background: rgba(248,113,113,0.15); color: #f87171; }
+
+.green-check { color: #34d399; }
+.gray-x { color: #64748b; }
+</style>
+</head>
+<body>
+
+<div class="cell-tooltip" id="cell-tooltip"></div>
+
+<!-- HEADER -->
+<header class="site-header">
+  <h1>🔥 张量与 PyTorch 实战</h1>
+  <p>StatQuest 风格 · 6步交互式教程 · 从张量到训练优化</p>
+</header>
+
+<!-- PROGRESS -->
+<div class="progress-wrap">
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav-wrap" id="main-nav">
+  <button class="nav-btn active" onclick="goStep(0)">Step 0 · 什么是张量？</button>
+  <button class="nav-btn" onclick="goStep(1)">Step 1 · 张量运算</button>
+  <button class="nav-btn" onclick="goStep(2)">Step 2 · PyTorch 结构</button>
+  <button class="nav-btn" onclick="goStep(3)">Step 3 · 自动微分</button>
+  <button class="nav-btn" onclick="goStep(4)">Step 4 · 训练循环</button>
+  <button class="nav-btn" onclick="goStep(5)">Step 5 · 超参数调优</button>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main-container">
+
+<!-- ============================
+     STEP 0: 什么是张量?
+============================= -->
+<section class="step-panel active" id="step-0">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 0</span> 什么是张量（Tensor）？</h2>
+    <div class="ctrl-row" id="dim-btns">
+      <button class="ctrl-btn active" onclick="setDim(0)">0D 标量</button>
+      <button class="ctrl-btn" onclick="setDim(1)">1D 向量</button>
+      <button class="ctrl-btn" onclick="setDim(2)">2D 矩阵</button>
+      <button class="ctrl-btn" onclick="setDim(3)">3D 图像</button>
+      <button class="ctrl-btn" onclick="setDim(4)">4D 批量</button>
+    </div>
+    <div id="tensor-scene"></div>
+    <div class="tensor-info-bar" id="tensor-info-bar">
+      <strong>0D 标量</strong> · Shape: <strong>[]</strong> · 元素数: <strong>1</strong>
+    </div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>🧱 张量是什么？</h3>
+      <p>张量是深度学习的基本数据容器，可以看作是多维数组的推广：</p>
+      <ul style="margin-top:8px">
+        <li><strong style="color:#f6d860">0D</strong>（标量）：单个数值，如 loss=0.42</li>
+        <li><strong style="color:#f6d860">1D</strong>（向量）：一组数值，如词嵌入 [512]</li>
+        <li><strong style="color:#f6d860">2D</strong>（矩阵）：表格型数据，如 [batch, features]</li>
+        <li><strong style="color:#f6d860">3D</strong>（图像）：H×W×C，如 [224,224,3]</li>
+        <li><strong style="color:#f6d860">4D</strong>（批量图像）：[N,C,H,W]</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>📐 Shape（形状）</h3>
+      <p>Shape 描述张量每个维度的大小，是理解张量最重要的概念。</p>
+      <div class="formula-box">
+# PyTorch 中的张量
+x = torch.tensor(3.14)        # []
+x = torch.randn(4)             # [4]
+x = torch.randn(3, 3)         # [3,3]
+x = torch.randn(3, 224, 224)  # [3,224,224]
+x = torch.randn(8, 3, 64, 64) # [8,3,64,64]
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>💡 点击格子查看数值</h3>
+      <p>左侧每个格子都可以点击，查看该位置的坐标和示例数值。切换维度可看到不同维度下张量的可视化形态。</p>
+      <div style="margin-top:8px">
+        <span class="tag">dtype</span>
+        <span class="tag">float32</span>
+        <span class="tag yellow">GPU/CPU</span>
+        <span class="tag green">autograd</span>
+      </div>
+    </div>
+  </aside>
+</section>
+
+<!-- ============================
+     STEP 1: 张量运算
+============================= -->
+<section class="step-panel" id="step-1">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 1</span> 张量运算可视化</h2>
+    <div class="ctrl-row">
+      <button class="ctrl-btn active" id="op-btn-0" onclick="setOp(0)">加法 (element-wise)</button>
+      <button class="ctrl-btn" id="op-btn-1" onclick="setOp(1)">乘法 (element-wise)</button>
+      <button class="ctrl-btn" id="op-btn-2" onclick="setOp(2)">矩阵乘法 (matmul)</button>
+    </div>
+    <div class="matrix-op-area">
+      <div class="matrices-row" id="matrices-row"></div>
+      <div class="ctrl-row" style="justify-content:center; margin-top:14px">
+        <button class="ctrl-btn" onclick="resetOpAnim()">重置</button>
+        <button class="ctrl-btn" onclick="stepOpAnim()">下一步 ▶</button>
+        <button class="ctrl-btn" onclick="autoOpAnim()">自动演示 ⟳</button>
+      </div>
+      <div class="step-indicator" id="op-step-label">点击「下一步」逐格演示运算过程</div>
+    </div>
+    <div class="broadcast-area" style="margin-top:10px">
+      <div class="broadcast-label">📡 广播机制（Broadcasting）演示：[3,1] + [1,3] → [3,3]</div>
+      <div class="broadcast-row" id="broadcast-row"></div>
+      <div class="ctrl-row" style="justify-content:center">
+        <button class="ctrl-btn" onclick="animBroadcast()">播放广播 ▶</button>
+        <button class="ctrl-btn" onclick="resetBroadcast()">重置</button>
+      </div>
+    </div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>📡 广播规则</h3>
+      <p>当两个张量形状不同时，PyTorch 会自动广播（扩展）较小的张量：</p>
+      <div class="formula-box">
+规则1: 维度不足时在左侧补1
+规则2: 大小为1的维度可扩展
+[3,1] + [1,3] → [3,3]
+[1,4] * [3,4] → [3,4]
+[5,1,3] + [3] → [5,1,3]
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>🔢 运算类型对比</h3>
+      <ul>
+        <li><strong style="color:#82aaff">加法/乘法</strong>：逐元素对应位置计算，要求形状相同（或可广播）</li>
+        <li><strong style="color:#f6d860">矩阵乘法</strong>：[m,k] @ [k,n] → [m,n]，内维度必须匹配</li>
+      </ul>
+      <div class="formula-box">
+A @ B  # 矩阵乘法
+A * B  # 逐元素乘法
+torch.matmul(A, B)
+torch.mm(A, B)  # 仅2D
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>⚠️ 常见形状错误</h3>
+      <p>矩阵乘法时 A 的最后一维必须等于 B 的倒数第二维，否则报错：</p>
+      <div class="formula-box">
+✅ [3,4] @ [4,5] → [3,5]
+❌ [3,4] @ [3,5] → Error!
+      </div>
+    </div>
+  </aside>
+</section>
+
+<!-- ============================
+     STEP 2: PyTorch 代码结构
+============================= -->
+<section class="step-panel" id="step-2">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 2</span> PyTorch 代码结构</h2>
+    <p style="font-size:0.8rem;color:#64748b;margin-bottom:10px">👆 点击每行代码查看详细说明和可视化</p>
+    <div class="code-block" id="code-block">
+      <span class="code-line" onclick="selectLine(0)"><span class="kw">import</span> <span class="fn">torch</span></span>
+      <span class="code-line" onclick="selectLine(1)"><span class="kw">import</span> <span class="fn">torch.nn</span> <span class="kw">as</span> <span class="fn">nn</span></span>
+      <span class="code-line" onclick="selectLine(2)"> </span>
+      <span class="code-line" onclick="selectLine(3)"><span class="fn">model</span> <span class="op">=</span> <span class="fn">nn</span><span class="op">.</span><span class="fn">Sequential</span><span class="op">(</span></span>
+      <span class="code-line" onclick="selectLine(4)">    <span class="fn">nn</span><span class="op">.</span><span class="fn">Linear</span><span class="op">(</span><span class="num">3</span><span class="op">,</span> <span class="num">4</span><span class="op">),</span>   <span class="cm"># 全连接层</span></span>
+      <span class="code-line" onclick="selectLine(5)">    <span class="fn">nn</span><span class="op">.</span><span class="fn">ReLU</span><span class="op">(),</span>          <span class="cm"># 激活函数</span></span>
+      <span class="code-line" onclick="selectLine(6)">    <span class="fn">nn</span><span class="op">.</span><span class="fn">Linear</span><span class="op">(</span><span class="num">4</span><span class="op">,</span> <span class="num">3</span><span class="op">),</span>   <span class="cm"># 第二层</span></span>
+      <span class="code-line" onclick="selectLine(7)">    <span class="fn">nn</span><span class="op">.</span><span class="fn">Softmax</span><span class="op">(</span><span class="fn">dim</span><span class="op">=</span><span class="num">1</span><span class="op">)</span>    <span class="cm"># 输出概率</span></span>
+      <span class="code-line" onclick="selectLine(8)"><span class="op">)</span></span>
+    </div>
+    <div class="code-viz-area" id="code-viz-area">
+      <p style="color:#64748b;font-size:0.82rem;">← 点击左侧代码行查看可视化</p>
+    </div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>🏗️ nn.Module 设计理念</h3>
+      <p>所有 PyTorch 层都继承自 <code style="color:#82aaff">nn.Module</code>，它提供：</p>
+      <ul style="margin-top:6px">
+        <li>自动参数管理（<code style="color:#f6d860">.parameters()</code>）</li>
+        <li>前向传播接口（<code style="color:#f6d860">forward()</code>）</li>
+        <li>设备迁移（<code style="color:#f6d860">.to(device)</code>）</li>
+        <li>保存/加载（<code style="color:#f6d860">state_dict()</code>）</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>🔀 Sequential vs 自定义</h3>
+      <div class="formula-box">
+# Sequential：简单堆叠
+model = nn.Sequential(...)
+
+# 自定义：更灵活
+class MyNet(nn.Module):
+  def __init__(self):
+    super().__init__()
+    self.fc1 = nn.Linear(3,4)
+  def forward(self, x):
+    return self.fc1(x)
+      </div>
+    </div>
+    <div class="info-card" id="code-detail-card">
+      <h3>📋 代码说明</h3>
+      <div id="code-detail-content">
+        <p style="color:#64748b">点击左侧代码行，这里会显示该行的详细说明。</p>
+      </div>
+    </div>
+  </aside>
+</section>
+
+<!-- ============================
+     STEP 3: Autograd
+============================= -->
+<section class="step-panel" id="step-3">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 3</span> 自动微分（Autograd）</h2>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="ag-btn-0" onclick="autogradStep(0)">① 初始化</button>
+      <button class="ctrl-btn" id="ag-btn-1" onclick="autogradStep(1)">② 前向传播</button>
+      <button class="ctrl-btn" id="ag-btn-2" onclick="autogradStep(2)">③ loss.backward()</button>
+      <button class="ctrl-btn" id="ag-btn-3" onclick="autogradStep(3)">④ 查看梯度</button>
+    </div>
+    <div class="autograd-canvas-wrap">
+      <canvas id="autograd-canvas"></canvas>
+    </div>
+    <div class="info-tooltip" id="ag-tooltip">点击上方按钮，逐步演示自动微分过程</div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>🔄 Autograd 原理</h3>
+      <p>PyTorch 在前向传播时记录所有操作，构建<strong style="color:#82aaff">计算图</strong>。调用 <code style="color:#f6d860">backward()</code> 时，沿图反向传播梯度。</p>
+      <div class="formula-box">
+x = torch.tensor(2.0,
+    requires_grad=True)
+y = x * x * 3    # y = 3x²
+z = y + 5        # z = 3x²+5
+z.backward()
+print(x.grad)    # dz/dx = 6x = 12
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>🎯 requires_grad</h3>
+      <ul>
+        <li><span class="green-check">✔</span> <strong>True</strong>：该张量参与梯度计算，典型如模型参数 W, b</li>
+        <li><span class="gray-x">✗</span> <strong>False（默认）</strong>：输入数据通常不需要梯度</li>
+      </ul>
+      <div class="formula-box">
+# 关闭梯度（推理时提速）
+with torch.no_grad():
+    pred = model(x)
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>📊 链式法则</h3>
+      <p>Autograd 基于链式法则（Chain Rule）：</p>
+      <div class="formula-box">
+∂L/∂x = ∂L/∂z · ∂z/∂y · ∂y/∂x
+
+L = (Wx + b - y)²
+∂L/∂W = 2(Wx+b-y)·x
+      </div>
+    </div>
+  </aside>
+</section>
+
+<!-- ============================
+     STEP 4: 训练循环
+============================= -->
+<section class="step-panel" id="step-4">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 4</span> 训练循环（Training Loop）</h2>
+    <div class="training-area">
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div class="flowchart" id="flowchart"></div>
+          <div class="ctrl-row" style="justify-content:center;margin-top:12px">
+            <button class="ctrl-btn" onclick="playTrainingLoop()">▶ 播放 Epoch</button>
+            <button class="ctrl-btn" onclick="resetTrainingLoop()">⟳ 重置</button>
+          </div>
+          <div class="epoch-counter" id="epoch-counter">Epoch: 0</div>
+        </div>
+        <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px">
+          <canvas id="training-canvas"></canvas>
+          <div class="info-tooltip" id="flow-tooltip">点击流程图方块查看对应代码</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>❓ 为什么要 zero_grad()?</h3>
+      <p>PyTorch 默认<strong style="color:#f87171">累积梯度</strong>（+=）！若不清零，每次 backward 会叠加上一步的梯度，导致参数更新错误。</p>
+      <div class="formula-box">
+# ❌ 错误：忘记清零
+for x, y in dataloader:
+    loss = criterion(model(x), y)
+    loss.backward()
+    optimizer.step()  # 梯度叠加！
+
+# ✅ 正确
+optimizer.zero_grad()  # ← 必须！
+loss.backward()
+optimizer.step()
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>🐛 常见训练 Bug</h3>
+      <ul>
+        <li><span class="tag red">Bug</span> 忘记 <code>.zero_grad()</code></li>
+        <li><span class="tag red">Bug</span> 在验证时未关 <code>no_grad()</code></li>
+        <li><span class="tag red">Bug</span> loss 没有调用 <code>.backward()</code></li>
+        <li><span class="tag red">Bug</span> optimizer 更新前没有算 loss</li>
+        <li><span class="tag green">Fix</span> 标准顺序：zero→forward→loss→backward→step</li>
+      </ul>
+    </div>
+  </aside>
+</section>
+
+<!-- ============================
+     STEP 5: 超参数调优
+============================= -->
+<section class="step-panel" id="step-5">
+  <div class="viz-panel">
+    <h2><span class="step-badge">STEP 5</span> 超参数调优可视化</h2>
+    <div class="ctrl-row">
+      <button class="ctrl-btn active" id="hp-btn-0" onclick="setHyperMode(0)">学习率影响</button>
+      <button class="ctrl-btn" id="hp-btn-1" onclick="setHyperMode(1)">批次大小影响</button>
+      <button class="ctrl-btn" id="hp-btn-2" onclick="setHyperMode(2)">网络深度影响</button>
+    </div>
+    <canvas id="hyper-canvas" style="margin-top:12px"></canvas>
+    <div class="hyper-legend" id="hyper-legend"></div>
+    <div class="info-tooltip" id="hyper-tooltip">点击画布中的曲线，查看该超参数配置详情</div>
+  </div>
+  <aside class="info-panel">
+    <div class="info-card">
+      <h3>🎯 超参数调优建议</h3>
+      <ul>
+        <li><strong style="color:#f6d860">学习率</strong>：最重要！先用 1e-3，再用 Learning Rate Finder</li>
+        <li><strong style="color:#82aaff">批次大小</strong>：32/64 通常够用，更大需调大 LR</li>
+        <li><strong style="color:#34d399">网络深度</strong>：先浅后深，加 BatchNorm + Residual</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>📅 学习率调度器</h3>
+      <div class="formula-box">
+# 余弦退火
+scheduler = CosineAnnealingLR(
+    optimizer, T_max=50)
+
+# ReduceOnPlateau（推荐）
+scheduler = ReduceLROnPlateau(
+    optimizer, patience=5)
+
+# 每 epoch 后调用
+scheduler.step()
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>🔧 调优优先级</h3>
+      <ol style="padding-left:16px;font-size:0.83rem;color:#cbd5e1;line-height:1.8">
+        <li>学习率（最重要）</li>
+        <li>批次大小</li>
+        <li>网络架构/深度</li>
+        <li>正则化（dropout, weight decay）</li>
+        <li>优化器选择</li>
+      </ol>
+    </div>
+  </aside>
+</section>
+
+</main>
+
+<script>
+/* =============================================
+   STATE MANAGEMENT
+============================================= */
+let currentStep = 0;
+const TOTAL_STEPS = 6;
+
+function goStep(n) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i===n));
+  document.getElementById(`step-${n}`).classList.add('active');
+  const pct = Math.round((n / (TOTAL_STEPS - 1)) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  currentStep = n;
+  initStep(n);
+}
+
+function initStep(n) {
+  if (n === 0) initTensor();
+  if (n === 1) initMatrixOp();
+  if (n === 2) initCode();
+  if (n === 3) initAutograd();
+  if (n === 4) initTraining();
+  if (n === 5) initHyper();
+}
+
+/* =============================================
+   STEP 0 — TENSOR VISUALIZATION
+============================================= */
+let currentDim = 0;
+const DIM_LABELS = ['0D 标量', '1D 向量', '2D 矩阵', '3D 图像 (RGB)', '4D 批量图像'];
+const DIM_SHAPES = ['[]', '[6]', '[4×4]', '[3×4×4]', '[3×3×4×4]'];
+const DIM_COUNTS = [1, 6, 16, 48, 144];
+const DIM_ELEMS = [1, 6, 16, 48, 144];
+
+// Random data arrays
+function rnd() { return +(Math.random() * 2 - 1).toFixed(2); }
+const data3d = Array.from({length:3}, () => Array.from({length:4}, () => Array.from({length:4}, rnd)));
+const data4d = Array.from({length:3}, () => Array.from({length:3}, () => Array.from({length:4}, () => Array.from({length:4}, rnd))));
+const data2d = Array.from({length:4}, () => Array.from({length:4}, rnd));
+const data1d = Array.from({length:6}, rnd);
+const data0d = [rnd()];
+
+function makeCellHTML(val, coords) {
+  return `<div class="t-cell" onmouseenter="showTip(event,'${coords}: ${val}')" onmouseleave="hideTip()">${val}</div>`;
+}
+
+function initTensor() { setDim(0); }
+
+function setDim(d) {
+  currentDim = d;
+  document.querySelectorAll('#dim-btns .ctrl-btn').forEach((b,i) => b.classList.toggle('active', i===d));
+  const scene = document.getElementById('tensor-scene');
+  scene.innerHTML = '';
+
+  let html = '';
+  if (d === 0) {
+    html = `<div class="t0d">${makeCellHTML(data0d[0], '[0]')}</div>`;
+    scene.style.perspective = 'none';
+  } else if (d === 1) {
+    html = `<div class="t1d">` + data1d.map((v,i) => makeCellHTML(v,`[${i}]`)).join('') + `</div>`;
+    scene.style.perspective = 'none';
+  } else if (d === 2) {
+    html = `<div class="t2d">` + data2d.map((row,r) =>
+      `<div class="t2d-row">${row.map((v,c) => makeCellHTML(v,`[${r},${c}]`)).join('')}</div>`
+    ).join('') + `</div>`;
+    scene.style.perspective = 'none';
+  } else if (d === 3) {
+    // 3 layers with 3D offset
+    const colors3 = ['rgba(239,68,68,0.3)', 'rgba(34,197,94,0.3)', 'rgba(59,130,246,0.3)'];
+    const borderColors3 = ['#ef4444','#22c55e','#3b82f6'];
+    const channelNames = ['R','G','B'];
+    // Build using absolute positioning simulation with flex + translateZ
+    scene.style.perspective = '600px';
+    html = `<div class="tensor-3d-wrap" style="transform:rotateX(20deg) rotateY(-20deg);transform-style:preserve-3d;position:relative;width:190px;height:190px">`;
+    for (let ch = 0; ch < 3; ch++) {
+      const offset = ch * 22;
+      html += `<div style="position:absolute;top:${offset}px;left:${offset}px;transform:translateZ(${ch*18}px);transform-style:preserve-3d">`;
+      html += `<div class="t2d" style="--border-color:${borderColors3[ch]}">`;
+      for (let r = 0; r < 4; r++) {
+        html += `<div class="t2d-row">`;
+        for (let c = 0; c < 4; c++) {
+          const v = data3d[ch][r][c];
+          html += `<div class="t-cell" style="background:${colors3[ch]};border-color:${borderColors3[ch]};width:38px;height:38px;font-size:0.6rem"
+            onmouseenter="showTip(event,'[${ch},${r},${c}]=${v} (${channelNames[ch]}通道)')"
+            onmouseleave="hideTip()">${v}</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+  } else if (d === 4) {
+    scene.style.perspective = '800px';
+    const batchColors = ['rgba(239,68,68,0.25)','rgba(34,197,94,0.25)','rgba(59,130,246,0.25)'];
+    const bColors3 = ['#ef4444','#22c55e','#3b82f6'];
+    html = `<div style="display:flex;gap:24px;transform:rotateX(15deg) rotateY(-15deg);transform-style:preserve-3d">`;
+    for (let b = 0; b < 3; b++) {
+      html += `<div style="position:relative;transform-style:preserve-3d;width:110px;height:110px">`;
+      html += `<div style="font-size:0.68rem;color:#94a3b8;text-align:center;margin-bottom:4px">img ${b}</div>`;
+      for (let ch = 0; ch < 3; ch++) {
+        const off = ch * 14;
+        html += `<div style="position:absolute;top:${off+20}px;left:${off}px;transform:translateZ(${ch*10}px)">`;
+        for (let r = 0; r < 4; r++) {
+          html += `<div style="display:flex;gap:2px">`;
+          for (let c = 0; c < 4; c++) {
+            const v = data4d[b][ch][r][c];
+            html += `<div class="t-cell" style="background:${batchColors[ch]};border-color:${bColors3[ch]};width:20px;height:20px;font-size:0.48rem;border-radius:3px"
+              onmouseenter="showTip(event,'[${b},${ch},${r},${c}]=${v}')"
+              onmouseleave="hideTip()">${v}</div>`;
+          }
+          html += `</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  scene.innerHTML = html;
+  const bar = document.getElementById('tensor-info-bar');
+  bar.innerHTML = `<strong>${DIM_LABELS[d]}</strong> · Shape: <strong>${DIM_SHAPES[d]}</strong> · 元素数: <strong>${DIM_ELEMS[d]}</strong>`;
+}
+
+function showTip(e, text) {
+  const t = document.getElementById('cell-tooltip');
+  t.style.display = 'block';
+  t.style.left = (e.clientX + 12) + 'px';
+  t.style.top = (e.clientY - 30) + 'px';
+  t.textContent = text;
+}
+function hideTip() {
+  document.getElementById('cell-tooltip').style.display = 'none';
+}
+
+/* =============================================
+   STEP 1 — MATRIX OPS
+============================================= */
+let currentOp = 0;
+let opStep = -1;
+let opAutoTimer = null;
+
+const MAT_A = [[1,2,3],[4,5,6],[7,8,9]];
+const MAT_B = [[9,8,7],[6,5,4],[3,2,1]];
+const OP_SYMBOLS = ['+', '×', '@'];
+const OP_RESULTS = [
+  // add
+  [[10,10,10],[10,10,10],[10,10,10]],
+  // element mul
+  [[9,16,21],[24,25,24],[21,16,9]],
+  // matmul
+  [[30,24,18],[84,69,54],[138,114,90]]
+];
+
+function initMatrixOp() { setOp(0); initBroadcast(); }
+
+function setOp(op) {
+  currentOp = op;
+  opStep = -1;
+  [0,1,2].forEach(i => document.getElementById(`op-btn-${i}`).classList.toggle('active', i===op));
+  renderMatrices();
+  document.getElementById('op-step-label').textContent = '点击「下一步」逐格演示运算过程';
+}
+
+function renderMatrices(highlightPos = null) {
+  const row = document.getElementById('matrices-row');
+  row.innerHTML = '';
+
+  function makeMatrix(data, label, highlightType = null) {
+    let html = `<div class="matrix-wrap"><div class="matrix-label">${label}</div><div class="matrix-grid">`;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        let cls = 'matrix-grid t-cell';
+        let extra = '';
+        if (highlightPos !== null) {
+          if (highlightType === 'A' && currentOp < 2 && r===highlightPos[0] && c===highlightPos[1]) extra = 'highlighted';
+          if (highlightType === 'A' && currentOp === 2 && r===highlightPos[0]) extra = 'highlighted';
+          if (highlightType === 'B' && currentOp < 2 && r===highlightPos[0] && c===highlightPos[1]) extra = 'highlighted';
+          if (highlightType === 'B' && currentOp === 2 && c===highlightPos[1]) extra = 'highlighted';
+          if (highlightType === 'C' && r===highlightPos[0] && c===highlightPos[1]) extra = 'highlighted';
+        }
+        html += `<div class="t-cell ${extra}" style="width:46px;height:46px;font-size:0.8rem">${data[r][c]}</div>`;
+      }
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  row.innerHTML = makeMatrix(MAT_A, 'A') +
+    `<div class="op-sign">${OP_SYMBOLS[currentOp]}</div>` +
+    makeMatrix(MAT_B, 'B') +
+    `<div class="op-sign">=</div>` +
+    makeMatrix(OP_RESULTS[currentOp], 'C (结果)');
+
+  if (highlightPos) {
+    // Re-render with highlight
+    row.innerHTML = '';
+    function makeMatHL(data, label, hlType) {
+      let html = `<div class="matrix-wrap"><div class="matrix-label">${label}</div><div class="matrix-grid">`;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          let hl = false;
+          if (hlType === 'A' && currentOp < 2 && r===highlightPos[0] && c===highlightPos[1]) hl=true;
+          if (hlType === 'A' && currentOp === 2 && r===highlightPos[0]) hl=true;
+          if (hlType === 'B' && currentOp < 2 && r===highlightPos[0] && c===highlightPos[1]) hl=true;
+          if (hlType === 'B' && currentOp === 2 && c===highlightPos[1]) hl=true;
+          if (hlType === 'C' && r===highlightPos[0] && c===highlightPos[1]) hl=true;
+          html += `<div class="t-cell${hl?' highlighted':''}" style="width:46px;height:46px;font-size:0.8rem">${data[r][c]}</div>`;
+        }
+      }
+      html += `</div></div>`;
+      return html;
+    }
+    row.innerHTML = makeMatHL(MAT_A,'A','A') +
+      `<div class="op-sign">${OP_SYMBOLS[currentOp]}</div>` +
+      makeMatHL(MAT_B,'B','B') +
+      `<div class="op-sign">=</div>` +
+      makeMatHL(OP_RESULTS[currentOp],'C (结果)','C');
+  }
+}
+
+function resetOpAnim() { opStep = -1; renderMatrices(); document.getElementById('op-step-label').textContent='点击「下一步」逐格演示'; if(opAutoTimer){clearInterval(opAutoTimer);opAutoTimer=null;} }
+function stepOpAnim() {
+  opStep++;
+  const total = 9;
+  if (opStep >= total) { opStep = -1; renderMatrices(); document.getElementById('op-step-label').textContent='演示完成，已重置'; return; }
+  const r = Math.floor(opStep/3), c = opStep%3;
+  renderMatrices([r,c]);
+  const A = MAT_A[r][c], B = MAT_B[r][c], res = OP_RESULTS[currentOp][r][c];
+  const opNames = ['+','×','·'];
+  if (currentOp < 2) {
+    document.getElementById('op-step-label').textContent = `[${r},${c}]: ${A} ${opNames[currentOp]} ${B} = ${res}`;
+  } else {
+    const rowA = MAT_A[r].join(',');
+    const colB = MAT_B.map(row=>row[c]).join(',');
+    document.getElementById('op-step-label').textContent = `C[${r},${c}]: 行[${rowA}] · 列[${colB}] = ${res}`;
+  }
+}
+function autoOpAnim() {
+  if (opAutoTimer) { clearInterval(opAutoTimer); opAutoTimer=null; return; }
+  opStep = -1;
+  opAutoTimer = setInterval(() => {
+    opStep++;
+    if (opStep >= 9) { clearInterval(opAutoTimer); opAutoTimer=null; opStep=-1; renderMatrices(); document.getElementById('op-step-label').textContent='自动演示完毕'; return; }
+    const r=Math.floor(opStep/3), c=opStep%3;
+    renderMatrices([r,c]);
+    document.getElementById('op-step-label').textContent=`计算位置 [${r},${c}]`;
+  }, 600);
+}
+
+// BROADCAST
+const BCAST_A = [[1],[2],[3]]; // [3,1]
+const BCAST_B = [[4,5,6]];     // [1,3]
+const BCAST_C = [[5,6,7],[6,7,8],[7,8,9]]; // [3,3]
+let bcastPhase = 0;
+let bcastTimer = null;
+
+function initBroadcast() { bcastPhase = 0; renderBroadcast(0); }
+function resetBroadcast() { if(bcastTimer){clearTimeout(bcastTimer);bcastTimer=null;} bcastPhase=0; renderBroadcast(0); }
+
+function renderBroadcast(phase) {
+  const row = document.getElementById('broadcast-row');
+  // phase 0: show originals, 1: expand A, 2: expand B, 3: show result
+  function bcastGrid(data, label, expandedRows, expandedCols, color) {
+    let html = `<div style="text-align:center"><div style="font-size:0.7rem;color:#94a3b8;margin-bottom:4px">${label}</div><div class="bcast-matrix">`;
+    for (let r = 0; r < (expandedRows||data.length); r++) {
+      html += `<div class="bcast-row">`;
+      const ri = r % data.length;
+      for (let c = 0; c < (expandedCols||data[0].length); c++) {
+        const ci = c % data[0].length;
+        const expanded = (expandedRows && r >= data.length) || (expandedCols && c >= data[0].length);
+        html += `<div class="bcast-cell${expanded?' expanded':''}">${data[ri][ci]}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  let html = '';
+  if (phase === 0) {
+    html = bcastGrid(BCAST_A,'A [3,1]') + `<div class="op-sign" style="margin:auto">+</div>` + bcastGrid(BCAST_B,'B [1,3]');
+  } else if (phase === 1) {
+    html = bcastGrid(BCAST_A,'A [3,1]→[3,3]',3,3,'expand') + `<div class="op-sign" style="margin:auto">+</div>` + bcastGrid(BCAST_B,'B [1,3]');
+  } else if (phase === 2) {
+    html = bcastGrid(BCAST_A,'A→[3,3]',3,3) + `<div class="op-sign" style="margin:auto">+</div>` + bcastGrid(BCAST_B,'B [1,3]→[3,3]',3,3);
+  } else {
+    html = bcastGrid(BCAST_A,'A→[3,3]',3,3) + `<div class="op-sign" style="margin:auto">+</div>` + bcastGrid(BCAST_B,'B→[3,3]',3,3) + `<div class="op-sign" style="margin:auto">=</div>` + bcastGrid(BCAST_C,'C [3,3]');
+  }
+  row.innerHTML = html;
+}
+
+function animBroadcast() {
+  bcastPhase = 0;
+  renderBroadcast(0);
+  function next() {
+    bcastPhase++;
+    renderBroadcast(bcastPhase);
+    if (bcastPhase < 3) bcastTimer = setTimeout(next, 800);
+  }
+  bcastTimer = setTimeout(next, 400);
+}
+
+/* =============================================
+   STEP 2 — CODE VISUALIZATION
+============================================= */
+let selectedLine = -1;
+
+function initCode() { selectedLine = -1; }
+
+const LINE_DETAILS = {
+  0: {
+    title: 'import torch',
+    desc: 'PyTorch 核心库，提供张量操作、自动微分、CUDA支持等所有基础功能。',
+    viz: 'import'
+  },
+  1: {
+    title: 'import torch.nn as nn',
+    desc: '<code>torch.nn</code> 是神经网络模块，提供各种层（Linear、Conv2d、ReLU等）和损失函数。',
+    viz: 'nn'
+  },
+  3: {
+    title: 'nn.Sequential(...)',
+    desc: '顺序容器，按顺序将多个层串联。输入数据依次经过每个层进行前向传播。',
+    viz: 'seq'
+  },
+  4: {
+    title: 'nn.Linear(3, 4)',
+    desc: '全连接层（线性变换）：y = xW^T + b。输入3个特征，输出4个特征。包含可学习参数 W[4,3] 和 b[4]。',
+    viz: 'linear34'
+  },
+  5: {
+    title: 'nn.ReLU()',
+    desc: 'ReLU激活函数：f(x) = max(0, x)。引入非线性，让网络能学习复杂函数。计算简单，梯度稳定。',
+    viz: 'relu'
+  },
+  6: {
+    title: 'nn.Linear(4, 3)',
+    desc: '第二个全连接层：输入4特征，输出3特征（对应3个类别）。',
+    viz: 'linear43'
+  },
+  7: {
+    title: 'nn.Softmax(dim=1)',
+    desc: 'Softmax 将输出转为概率分布（和为1）。<code>dim=1</code> 表示沿第1维（特征维）操作。',
+    viz: 'softmax'
+  }
+};
+
+function selectLine(idx) {
+  selectedLine = idx;
+  document.querySelectorAll('.code-line').forEach((l,i) => l.classList.toggle('selected', i===idx));
+  const detail = LINE_DETAILS[idx];
+  if (!detail) {
+    document.getElementById('code-detail-content').innerHTML = `<p style="color:#64748b">此行无特殊说明</p>`;
+    document.getElementById('code-viz-area').innerHTML = `<p style="color:#64748b;font-size:0.82rem">无可视化</p>`;
+    return;
+  }
+  document.getElementById('code-detail-content').innerHTML = `<p>${detail.desc}</p>`;
+  renderCodeViz(detail.viz);
+}
+
+function renderCodeViz(type) {
+  const area = document.getElementById('code-viz-area');
+  if (type === 'import' || type === 'nn') {
+    area.innerHTML = `
+      <div style="text-align:center;padding:20px">
+        <div style="font-size:2rem">📦</div>
+        <div style="color:#82aaff;font-size:0.88rem;margin-top:8px">${type==='import'?'torch 提供张量 + autograd + CUDA':'nn 提供所有神经网络层'}</div>
+        <div class="formula-box" style="margin-top:10px;text-align:left">
+${type==='import'?'torch.Tensor, torch.optim\ntorch.autograd, torch.cuda':'nn.Linear, nn.Conv2d\nnn.ReLU, nn.BatchNorm2d\nnn.CrossEntropyLoss'}
+        </div>
+      </div>`;
+    return;
+  }
+  if (type === 'relu') {
+    area.innerHTML = `<canvas id="relu-canvas" width="280" height="150"></canvas>`;
+    requestAnimationFrame(() => drawReLU());
+    return;
+  }
+  if (type === 'linear34' || type === 'linear43') {
+    const [inN, outN] = type === 'linear34' ? [3,4] : [4,3];
+    area.innerHTML = buildNetDiagram(inN, outN, type);
+    animateNetDiagram(inN, outN);
+    return;
+  }
+  if (type === 'seq') {
+    area.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;padding:10px">
+        ${['输入 x','Linear(3,4)','ReLU','Linear(4,3)','Softmax'].map((l,i) =>
+          `<div style="background:rgba(102,126,234,0.2);border:1px solid #667eea;border-radius:8px;padding:8px 12px;font-size:0.75rem;color:#a5b4fc">${l}</div>${i<4?'<div style="color:#667eea">→</div>':''}`
+        ).join('')}
+      </div>`;
+    return;
+  }
+  if (type === 'softmax') {
+    area.innerHTML = `
+      <div style="text-align:center;padding:16px">
+        <div style="display:flex;gap:10px;justify-content:center;align-items:center">
+          <div>
+            <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px">原始输出</div>
+            ${[2.1,-1.3,0.7].map(v=>`<div style="background:#1a1a2e;border:1px solid #374151;border-radius:6px;padding:4px 12px;margin:3px;font-size:0.8rem;color:#f6d860">${v}</div>`).join('')}
+          </div>
+          <div style="font-size:1.5rem;color:#667eea">→</div>
+          <div>
+            <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px">Softmax概率</div>
+            ${['0.72','0.02','0.19'].map((v,i)=>`<div style="background:rgba(102,126,234,${0.1+i*0.05});border:1px solid rgba(102,126,234,0.4);border-radius:6px;padding:4px 12px;margin:3px;font-size:0.8rem;color:#a5b4fc">${v}</div>`).join('')}
+          </div>
+        </div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:8px">σ(z_i) = e^z_i / Σe^z_j</div>
+      </div>`;
+    return;
+  }
+  area.innerHTML = `<p style="color:#64748b">无可视化</p>`;
+}
+
+function buildNetDiagram(inN, outN, type) {
+  const inNodes = Array.from({length:inN}, (_,i) => `<div class="nn-node" id="nn-in-${i}"></div>`).join('');
+  const outNodes = Array.from({length:outN}, (_,i) => `<div class="nn-node" id="nn-out-${i}"></div>`).join('');
+  return `
+    <div class="nn-diagram">
+      <div class="nn-layer-col">
+        ${inNodes}
+        <div class="nn-label">输入<br>[${inN}]</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 8px">
+        <div style="font-size:0.68rem;color:#94a3b8">W[${outN},${inN}]</div>
+        <div style="font-size:1rem;color:#667eea">→</div>
+      </div>
+      <div class="nn-layer-col">
+        ${outNodes}
+        <div class="nn-label">输出<br>[${outN}]</div>
+      </div>
+    </div>
+    <div style="font-size:0.72rem;color:#64748b;text-align:center;margin-top:8px">
+      y = x·W<sup>T</sup> + b &nbsp; 参数: ${inN*outN+outN}个
+    </div>`;
+}
+
+function animateNetDiagram(inN, outN) {
+  let i = 0;
+  const timer = setInterval(() => {
+    document.querySelectorAll('.nn-node').forEach(n => n.classList.remove('active-node'));
+    const inNode = document.getElementById(`nn-in-${i % inN}`);
+    if (inNode) inNode.classList.add('active-node');
+    const outNode = document.getElementById(`nn-out-${i % outN}`);
+    if (outNode) outNode.classList.add('active-node');
+    i++;
+    if (i > Math.max(inN,outN)*2) clearInterval(timer);
+  }, 300);
+}
+
+function drawReLU() {
+  const c = document.getElementById('relu-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,280,150);
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(0,0,280,150);
+  // axes
+  ctx.strokeStyle = '#374151';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(20,130); ctx.lineTo(260,130); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(140,10); ctx.lineTo(140,140); ctx.stroke();
+  // labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('x', 255, 128);
+  ctx.fillText('y', 143, 14);
+  ctx.fillText('ReLU: max(0,x)', 60, 25);
+  // relu curve
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let px = 20; px <= 260; px++) {
+    const x = (px - 140) / 30;
+    const relu = Math.max(0, x);
+    const py = 130 - relu * 30;
+    if (px === 20) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  // dot at origin
+  ctx.fillStyle = '#f6d860';
+  ctx.beginPath(); ctx.arc(140, 130, 4, 0, Math.PI*2); ctx.fill();
+}
+
+/* =============================================
+   STEP 3 — AUTOGRAD
+============================================= */
+let agPhase = 0;
+const AG_W = 560, AG_H = 320;
+
+function initAutograd() {
+  agPhase = 0;
+  const canvas = document.getElementById('autograd-canvas');
+  resizeCanvas(canvas, Math.min(window.innerWidth - 80, AG_W), 280);
+  drawAutograd(0);
+  document.getElementById('ag-tooltip').textContent = '点击上方按钮，逐步演示自动微分过程';
+  [0,1,2,3].forEach(i => document.getElementById(`ag-btn-${i}`).classList.toggle('active', i===0));
+}
+
+function resizeCanvas(canvas, w, h) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.getContext('2d').scale(dpr, dpr);
+}
+
+function autogradStep(phase) {
+  agPhase = phase;
+  [0,1,2,3].forEach(i => document.getElementById(`ag-btn-${i}`).classList.toggle('active', i===phase));
+  drawAutograd(phase);
+  const tips = [
+    '初始化：x=2, w=3, b=1。x和w标记 requires_grad=True',
+    '前向传播（蓝色箭头）：y = w*x = 6，L = y + b = 7',
+    '反向传播（红色箭头）：L.backward() 沿图反向计算梯度',
+    '查看梯度：x.grad = ∂L/∂x = w = 3，w.grad = ∂L/∂w = x = 2'
+  ];
+  document.getElementById('ag-tooltip').textContent = tips[phase];
+}
+
+function drawAutograd(phase) {
+  const canvas = document.getElementById('autograd-canvas');
+  if (!canvas) return;
+  const W = parseInt(canvas.style.width)||500, H = parseInt(canvas.style.height)||280;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  ctx.save();
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  // Node positions
+  const nodes = {
+    x:  {x:60,  y:200, label:'x=2', sub:'requires_grad=✔', req:true},
+    w:  {x:60,  y:90,  label:'w=3', sub:'requires_grad=✔', req:true},
+    b:  {x:200, y:200, label:'b=1', sub:'requires_grad=✗', req:false},
+    mul:{x:200, y:140, label:'×', sub:'y=w*x=6', op:true},
+    add:{x:340, y:140, label:'+', sub:'L=y+b=7', op:true},
+    L:  {x:460, y:140, label:'L=7', sub:'loss', loss:true}
+  };
+  const edges = [
+    {from:'x', to:'mul'}, {from:'w', to:'mul'},
+    {from:'mul', to:'add'}, {from:'b', to:'add'},
+    {from:'add', to:'L'}
+  ];
+
+  // Draw edges
+  edges.forEach(e => {
+    const s = nodes[e.from], t = nodes[e.to];
+    const isForward = phase >= 1;
+    const isBackward = phase >= 2;
+    ctx.lineWidth = 2;
+    // Forward arrow
+    if (isForward) {
+      ctx.strokeStyle = '#3b82f6';
+      ctx.shadowColor = '#3b82f6';
+      ctx.shadowBlur = 6;
+    } else {
+      ctx.strokeStyle = '#374151';
+      ctx.shadowBlur = 0;
+    }
+    ctx.beginPath(); ctx.moveTo(s.x+28,s.y); ctx.lineTo(t.x-28,t.y); ctx.stroke();
+    // Arrow head
+    const angle = Math.atan2(t.y-s.y, t.x-s.x);
+    const ax = t.x-28, ay = t.y;
+    ctx.fillStyle = isForward ? '#3b82f6' : '#374151';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax-10*Math.cos(angle-0.3), ay-10*Math.sin(angle-0.3));
+    ctx.lineTo(ax-10*Math.cos(angle+0.3), ay-10*Math.sin(angle+0.3));
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    // Backward arrow (offset)
+    if (phase >= 2) {
+      ctx.strokeStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 6;
+      ctx.setLineDash([4,4]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(t.x-28, t.y+6); ctx.lineTo(s.x+28, s.y+6); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+    }
+  });
+
+  // Draw nodes
+  Object.entries(nodes).forEach(([key, nd]) => {
+    const r = nd.op ? 22 : 28;
+    ctx.shadowBlur = 0;
+    // background
+    if (nd.loss) { ctx.fillStyle = 'rgba(246,216,96,0.2)'; ctx.strokeStyle='#f6d860'; }
+    else if (nd.op) { ctx.fillStyle = 'rgba(102,126,234,0.25)'; ctx.strokeStyle='#667eea'; }
+    else if (nd.req) { ctx.fillStyle = 'rgba(52,211,153,0.18)'; ctx.strokeStyle='#34d399'; }
+    else { ctx.fillStyle = 'rgba(100,116,139,0.18)'; ctx.strokeStyle='#64748b'; }
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(nd.x, nd.y, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    // label
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${nd.op?'18':'12'}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nd.label, nd.x, nd.y);
+    // sub label
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(nd.sub, nd.x, nd.y + r + 12);
+    // requires_grad badge
+    if (nd.req !== undefined && !nd.op) {
+      ctx.fillStyle = nd.req ? '#34d399' : '#64748b';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(nd.req ? '✔' : '✗', nd.x + r - 2, nd.y - r + 2);
+    }
+    // gradient value
+    if (phase >= 3 && nd.req) {
+      const gradVals = {x:'grad=3', w:'grad=2'};
+      if (gradVals[key]) {
+        ctx.fillStyle = '#f6d860';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(gradVals[key], nd.x, nd.y + r + 24);
+      }
+    }
+  });
+
+  // Legend
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  if (phase >= 1) {
+    ctx.fillStyle = '#3b82f6';
+    ctx.fillText('— 前向传播', W-140, 20);
+  }
+  if (phase >= 2) {
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('-- 反向传播', W-140, 36);
+  }
+  ctx.restore();
+}
+
+/* =============================================
+   STEP 4 — TRAINING LOOP
+============================================= */
+let trainPhase = -1;
+let trainTimer = null;
+let trainEpoch = 0;
+let trainLosses = [];
+let trainAnimProgress = 0;
+let trainRafId = null;
+
+const FLOW_NODES = [
+  { id:'data',  label:'📥 数据加载', code:'for x, y in dataloader:\n    x, y = x.to(device), y.to(device)' },
+  { id:'fwd',   label:'➡️ 前向传播',  code:'pred = model(x)\n# pred.shape: [batch, classes]' },
+  { id:'loss',  label:'📉 计算 Loss', code:'loss = criterion(pred, y)\n# CrossEntropyLoss 等' },
+  { id:'bwd',   label:'🔁 loss.backward()', code:'loss.backward()\n# 计算所有参数的梯度' },
+  { id:'step',  label:'⚡ optimizer.step()', code:'optimizer.step()\n# 用梯度更新参数 W -= lr*grad' },
+  { id:'zero',  label:'🔄 zero_grad()', code:'optimizer.zero_grad()\n# 清零梯度（下轮开始前）' },
+];
+
+function initTraining() {
+  trainPhase = -1; trainEpoch = 0; trainLosses = [];
+  renderFlowchart();
+  const canvas = document.getElementById('training-canvas');
+  resizeCanvas(canvas, 300, 180);
+  drawTrainingCanvas();
+  document.getElementById('epoch-counter').textContent = 'Epoch: 0';
+  document.getElementById('flow-tooltip').textContent = '点击流程图方块查看对应代码';
+}
+
+function renderFlowchart() {
+  const fc = document.getElementById('flowchart');
+  fc.innerHTML = '';
+  FLOW_NODES.forEach((nd, i) => {
+    const div = document.createElement('div');
+    div.className = 'flow-node' + (trainPhase===i?' active-flow':'');
+    div.id = 'flow-'+nd.id;
+    div.textContent = nd.label;
+    div.onclick = () => showFlowCode(i);
+    fc.appendChild(div);
+    if (i < FLOW_NODES.length-1) {
+      const arr = document.createElement('div');
+      arr.className = 'flow-arrow';
+      arr.textContent = '↓';
+      fc.appendChild(arr);
+    }
+  });
+  const loopDiv = document.createElement('div');
+  loopDiv.className = 'flow-loop-arrow';
+  loopDiv.textContent = '↩ 下一个 batch / epoch';
+  fc.appendChild(loopDiv);
+}
+
+function showFlowCode(i) {
+  trainPhase = i;
+  document.querySelectorAll('.flow-node').forEach((n,j) => n.classList.toggle('active-flow', j===i));
+  document.getElementById('flow-tooltip').innerHTML = `<code style="color:#82aaff">${FLOW_NODES[i].label}</code><br><pre style="margin-top:6px;font-size:0.78rem;color:#f6d860">${FLOW_NODES[i].code}</pre>`;
+}
+
+function playTrainingLoop() {
+  if (trainTimer) return;
+  trainPhase = -1;
+  let step = 0;
+  trainTimer = setInterval(() => {
+    document.querySelectorAll('.flow-node').forEach((n,j) => n.classList.toggle('active-flow', j===step));
+    if (step >= FLOW_NODES.length) {
+      clearInterval(trainTimer); trainTimer = null;
+      trainEpoch++;
+      document.getElementById('epoch-counter').textContent = `Epoch: ${trainEpoch}`;
+      const loss = Math.max(0.05, 2.5 * Math.exp(-trainEpoch * 0.18) + (Math.random()-0.5)*0.1);
+      trainLosses.push(loss);
+      animTrainingCanvas();
+      return;
+    }
+    step++;
+  }, 500);
+}
+
+function resetTrainingLoop() {
+  if (trainTimer) { clearInterval(trainTimer); trainTimer = null; }
+  if (trainRafId) { cancelAnimationFrame(trainRafId); trainRafId = null; }
+  trainPhase = -1; trainEpoch = 0; trainLosses = [];
+  renderFlowchart();
+  document.getElementById('epoch-counter').textContent = 'Epoch: 0';
+  document.getElementById('flow-tooltip').textContent = '点击流程图方块查看对应代码';
+  const canvas = document.getElementById('training-canvas');
+  resizeCanvas(canvas, 300, 180);
+  drawTrainingCanvas();
+}
+
+function drawTrainingCanvas() {
+  const canvas = document.getElementById('training-canvas');
+  if (!canvas) return;
+  const W = parseInt(canvas.style.width)||300, H = parseInt(canvas.style.height)||180;
+  const dpr = window.devicePixelRatio||1;
+  const ctx = canvas.getContext('2d');
+  ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(0,0,W,H);
+  const pad = {t:20,r:20,b:35,l:40};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  // grid
+  ctx.strokeStyle='#1f2937'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=pad.t+ch*i/4; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();}
+  // axes
+  ctx.strokeStyle='#374151'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+ch);ctx.lineTo(pad.l+cw,pad.t+ch);ctx.stroke();
+  // axis labels
+  ctx.fillStyle='#64748b';ctx.font='10px sans-serif';
+  ctx.textAlign='center'; ctx.fillText('Epoch',pad.l+cw/2,H-5);
+  ctx.textAlign='right'; ctx.fillText('Loss',pad.l-4,pad.t+4);
+  // y axis ticks
+  [0,0.5,1,1.5,2,2.5].forEach((v,i)=>{
+    const y=pad.t+ch-ch*(v/2.5);
+    ctx.textAlign='right';ctx.fillStyle='#64748b';ctx.font='9px sans-serif';
+    ctx.fillText(v.toFixed(1),pad.l-3,y+3);
+  });
+  // plot losses
+  if (trainLosses.length < 2) {
+    ctx.fillStyle='#64748b';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('点击「播放 Epoch」开始训练',pad.l+cw/2,pad.t+ch/2);
+    ctx.restore(); return;
+  }
+  const maxEpoch = Math.max(trainLosses.length, 10);
+  ctx.strokeStyle='#667eea'; ctx.lineWidth=2;
+  ctx.shadowColor='#667eea'; ctx.shadowBlur=6;
+  ctx.beginPath();
+  trainLosses.forEach((loss,i)=>{
+    const x=pad.l+cw*i/(maxEpoch-1);
+    const y=pad.t+ch-ch*(Math.min(loss,2.5)/2.5);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke(); ctx.shadowBlur=0;
+  // dot at last
+  const lastX=pad.l+cw*(trainLosses.length-1)/(maxEpoch-1);
+  const lastY=pad.t+ch-ch*(Math.min(trainLosses[trainLosses.length-1],2.5)/2.5);
+  ctx.fillStyle='#f6d860'; ctx.beginPath(); ctx.arc(lastX,lastY,4,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function animTrainingCanvas() {
+  let prog = 0;
+  const target = trainLosses.length;
+  function frame() {
+    prog += 0.05;
+    if (prog >= 1) { drawTrainingCanvas(); return; }
+    drawTrainingCanvas();
+    trainRafId = requestAnimationFrame(frame);
+  }
+  trainRafId = requestAnimationFrame(frame);
+}
+
+/* =============================================
+   STEP 5 — HYPERPARAMS
+============================================= */
+let hyperMode = 0;
+let hyperAnimTimer = null;
+let hyperProgress = 0;
+let hyperRafId = null;
+
+const LR_CONFIGS = [
+  { label:'lr=0.001 ⭐', color:'#34d399', lr:0.001, star:true },
+  { label:'lr=0.01',  color:'#667eea', lr:0.01 },
+  { label:'lr=0.1',   color:'#f87171', lr:0.1 },
+];
+const BS_CONFIGS = [
+  { label:'batch=16 ⭐', color:'#34d399', star:true },
+  { label:'batch=64',   color:'#667eea' },
+  { label:'batch=256',  color:'#f87171' },
+];
+const DEPTH_CONFIGS = [
+  { label:'2层网络',    color:'#f87171' },
+  { label:'4层网络 ⭐', color:'#34d399', star:true },
+  { label:'8层(过深)',  color:'#667eea' },
+];
+
+function genLossCurve(mode, idx, epochs) {
+  const curves = [
+    // LR curves
+    [
+      (e) => Math.max(0.05, 2.3*Math.exp(-e*0.12) + 0.02*Math.sin(e*0.5)),
+      (e) => Math.max(0.06, 2.3*Math.exp(-e*0.22) + 0.05*Math.sin(e*0.8)),
+      (e) => { if(e<5) return 2.3; return Math.max(0.3, 2.3*Math.exp(-e*0.08)*Math.abs(Math.sin(e*0.3))+0.3); }
+    ],
+    // Batch size curves
+    [
+      (e) => Math.max(0.06, 2.2*Math.exp(-e*0.16) + 0.04*Math.sin(e*0.7)),
+      (e) => Math.max(0.07, 2.2*Math.exp(-e*0.14) + 0.02),
+      (e) => Math.max(0.12, 2.2*Math.exp(-e*0.10) + 0.08),
+    ],
+    // Depth curves
+    [
+      (e) => Math.max(0.15, 2.0*Math.exp(-e*0.08) + 0.1),
+      (e) => Math.max(0.04, 2.0*Math.exp(-e*0.20) + 0.02),
+      (e) => Math.max(0.08, 2.0*Math.exp(-e*0.12) + 0.06 + 0.02*Math.sin(e*0.4)),
+    ]
+  ];
+  const fn = curves[mode][idx];
+  return Array.from({length:epochs}, (_,i) => fn(i));
+}
+
+function initHyper() {
+  hyperMode = 0; hyperProgress = 0;
+  const canvas = document.getElementById('hyper-canvas');
+  const W = Math.min(window.innerWidth - 80, 700);
+  resizeCanvas(canvas, W, 300);
+  canvas.addEventListener('click', onHyperClick);
+  setHyperMode(0);
+}
+
+function setHyperMode(m) {
+  hyperMode = m;
+  [0,1,2].forEach(i => document.getElementById(`hp-btn-${i}`).classList.toggle('active', i===m));
+  hyperProgress = 0;
+  if (hyperRafId) cancelAnimationFrame(hyperRafId);
+  animHyper();
+  renderHyperLegend();
+}
+
+function getHyperConfigs() {
+  return [LR_CONFIGS, BS_CONFIGS, DEPTH_CONFIGS][hyperMode];
+}
+
+function renderHyperLegend() {
+  const cfgs = getHyperConfigs();
+  const lg = document.getElementById('hyper-legend');
+  lg.innerHTML = cfgs.map((c,i) => `
+    <div class="legend-item" onclick="highlightHyperCurve(${i})">
+      <div class="legend-dot" style="background:${c.color}"></div>
+      <span>${c.label}</span>
+    </div>`).join('');
+}
+
+function animHyper() {
+  const EPOCHS = 50;
+  const startTime = performance.now();
+  const duration = 1200;
+  function frame(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    hyperProgress = t;
+    drawHyperCanvas(Math.ceil(t * EPOCHS));
+    if (t < 1) hyperRafId = requestAnimationFrame(frame);
+  }
+  hyperRafId = requestAnimationFrame(frame);
+}
+
+function drawHyperCanvas(maxEpoch) {
+  const canvas = document.getElementById('hyper-canvas');
+  if (!canvas) return;
+  const W = parseInt(canvas.style.width)||700, H = parseInt(canvas.style.height)||300;
+  const dpr = window.devicePixelRatio||1;
+  const ctx = canvas.getContext('2d');
+  ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle='#111827'; ctx.fillRect(0,0,W,H);
+
+  const pad = {t:24,r:40,b:44,l:50};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const EPOCHS = 50;
+
+  // grid
+  ctx.strokeStyle='#1f2937'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ch*i/4;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+    ctx.fillStyle='#374151';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText((2.5-i*0.5).toFixed(1),pad.l-4,y+3);
+  }
+  for(let i=0;i<=5;i++){
+    const x=pad.l+cw*i/5;
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+ch);ctx.stroke();
+    ctx.fillStyle='#374151';ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText(i*10,x,pad.t+ch+14);
+  }
+  // axes
+  ctx.strokeStyle='#4b5563'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+ch);ctx.lineTo(pad.l+cw,pad.t+ch);ctx.stroke();
+  ctx.fillStyle='#6b7280';ctx.font='11px sans-serif';
+  ctx.textAlign='center';ctx.fillText('Epoch',pad.l+cw/2,H-6);
+  ctx.save();ctx.translate(14,pad.t+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center';ctx.fillText('Loss',0,0);ctx.restore();
+
+  const cfgs = getHyperConfigs();
+  cfgs.forEach((cfg, idx) => {
+    const losses = genLossCurve(hyperMode, idx, EPOCHS);
+    ctx.strokeStyle = cfg.color;
+    ctx.lineWidth = cfg.star ? 3 : 2;
+    ctx.shadowColor = cfg.color; ctx.shadowBlur = cfg.star ? 8 : 3;
+    if (!cfg.star) ctx.setLineDash([6,3]);
+    ctx.beginPath();
+    for (let e = 0; e < Math.min(maxEpoch, EPOCHS); e++) {
+      const x = pad.l + cw * e / (EPOCHS-1);
+      const y = pad.t + ch - ch * Math.min(losses[e], 2.5) / 2.5;
+      if (e===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur=0;
+    // star marker at end
+    if (cfg.star && maxEpoch >= EPOCHS) {
+      const lastLoss = losses[EPOCHS-1];
+      const ex = pad.l + cw * (EPOCHS-1) / (EPOCHS-1);
+      const ey = pad.t + ch - ch * Math.min(lastLoss,2.5)/2.5;
+      ctx.fillStyle = '#f6d860';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('★', ex+12, ey);
+    }
+    // label at right end
+    if (maxEpoch >= EPOCHS * 0.5) {
+      const e = Math.min(maxEpoch-1, EPOCHS-1);
+      const x = pad.l + cw * e / (EPOCHS-1);
+      const y = pad.t + ch - ch * Math.min(losses[e],2.5)/2.5;
+      ctx.fillStyle = cfg.color;
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.shadowColor = cfg.color; ctx.shadowBlur = 4;
+      ctx.fillText(cfg.label.replace(' ⭐',''), x+4, y);
+      ctx.shadowBlur = 0;
+    }
+  });
+  ctx.restore();
+}
+
+function highlightHyperCurve(i) {
+  const cfgs = getHyperConfigs();
+  const c = cfgs[i];
+  const detail = [
+    [`lr=0.001: 慢慢收敛但最稳定，适合精细调优`, `lr=0.01: 适中，通常是好的起点`, `lr=0.1: 过大，震荡不收敛，loss不稳定`],
+    [`batch=16: 噪声多但泛化好，训练慢`, `batch=64: 经典设置，速度和质量均衡 ⭐`, `batch=256: 训练快但需要更大学习率，可能泛化差`],
+    [`2层: 参数少，欠拟合，loss高`, `4层: 深度适中，表现最好 ⭐`, `8层: 梯度消失风险，收敛慢，需要ResNet等技巧`]
+  ][hyperMode][i];
+  document.getElementById('hyper-tooltip').innerHTML = `<strong style="color:${c.color}">${c.label}</strong>：${detail}`;
+}
+
+function onHyperClick(e) {
+  const canvas = document.getElementById('hyper-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const W = parseInt(canvas.style.width)||700, H = parseInt(canvas.style.height)||300;
+  const pad = {t:24,r:40,b:44,l:50};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const EPOCHS = 50;
+  const cfgs = getHyperConfigs();
+  let closest = null, closestDist = 30;
+  cfgs.forEach((cfg,i) => {
+    const losses = genLossCurve(hyperMode, i, EPOCHS);
+    for (let e=0;e<EPOCHS;e++) {
+      const x=pad.l+cw*e/(EPOCHS-1);
+      const y=pad.t+ch-ch*Math.min(losses[e],2.5)/2.5;
+      const d=Math.sqrt((mx-x)**2+(my-y)**2);
+      if(d<closestDist){closestDist=d;closest=i;}
+    }
+  });
+  if (closest!==null) highlightHyperCurve(closest);
+}
+
+/* =============================================
+   INIT
+============================================= */
+window.addEventListener('load', () => {
+  goStep(0);
+});
+window.addEventListener('resize', () => {
+  if (currentStep === 3) {
+    const canvas = document.getElementById('autograd-canvas');
+    resizeCanvas(canvas, Math.min(window.innerWidth-80,500), 280);
+    drawAutograd(agPhase);
+  }
+  if (currentStep === 4) {
+    const c = document.getElementById('training-canvas');
+    resizeCanvas(c, 300, 180);
+    drawTrainingCanvas();
+  }
+  if (currentStep === 5) {
+    const canvas = document.getElementById('hyper-canvas');
+    const W = Math.min(window.innerWidth-80,700);
+    resizeCanvas(canvas, W, 300);
+    drawHyperCanvas(Math.ceil(hyperProgress*50));
+  }
+});
+</script>
+</body>
+</html>
