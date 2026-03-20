@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经网络系列：SoftMax、ArgMax 与交叉熵</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;font-family:'PingFang SC','Microsoft YaHei',sans-serif;color:#e8e8f0;padding:20px}
+  .page-title{text-align:center;padding:30px 0 20px;font-size:2rem;font-weight:700;background:linear-gradient(90deg,#667eea,#764ba2,#f6d860);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .page-subtitle{text-align:center;color:#a0a8c0;margin-bottom:30px;font-size:1rem}
+  .progress-bar-wrap{width:100%;max-width:900px;margin:0 auto 10px;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+  .progress-bar{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:3px;transition:width .4s ease}
+  .step-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:24px;max-width:900px;margin-left:auto;margin-right:auto}
+  .step-btn{padding:8px 18px;border-radius:20px;border:1px solid rgba(102,126,234,.5);background:transparent;color:#a0a8c0;cursor:pointer;font-size:.85rem;transition:all .3s}
+  .step-btn:hover{border-color:#667eea;color:#667eea}
+  .step-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);border-color:transparent;color:#fff;font-weight:600}
+  .container{max-width:900px;margin:0 auto;background:rgba(255,255,255,.05);border-radius:20px;padding:28px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1)}
+  .step-panel{display:none}.step-panel.active{display:block}
+  .main-area{display:grid;grid-template-columns:1fr 340px;gap:20px}
+  @media(max-width:900px){.main-area{grid-template-columns:1fr}}
+  .viz-panel{background:rgba(0,0,0,.3);border-radius:14px;padding:20px;min-height:340px;position:relative}
+  .info-panel{display:flex;flex-direction:column;gap:14px}
+  .card{background:rgba(255,255,255,.06);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.08)}
+  .card h3{font-size:.95rem;color:#667eea;margin-bottom:8px;font-weight:600}
+  .card p,.card li{font-size:.85rem;color:#c0c8d8;line-height:1.7}
+  .card ul{padding-left:16px}
+  .card li{margin-bottom:4px}
+  .formula{background:#0d0d1a;border-radius:8px;padding:12px 14px;font-family:'Courier New',monospace;font-size:.85rem;margin:8px 0;border:1px solid rgba(102,126,234,.3)}
+  .formula .hl{color:#f6d860}
+  .formula .comment{color:#666}
+  .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:9px 20px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .2s;margin:4px}
+  .btn-primary:hover{opacity:.85}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed}
+  .btn-secondary{background:transparent;color:#667eea;border:1px solid #667eea;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s;margin:4px}
+  .btn-secondary:hover{background:rgba(102,126,234,.15)}
+  .btn-secondary.active-preset{background:rgba(102,126,234,.25);border-color:#764ba2}
+  canvas{display:block;border-radius:8px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin:2px}
+  .badge-green{background:rgba(72,199,142,.2);color:#48c78e;border:1px solid rgba(72,199,142,.4)}
+  .badge-red{background:rgba(255,100,100,.2);color:#ff6464;border:1px solid rgba(255,100,100,.4)}
+  .badge-yellow{background:rgba(246,216,96,.2);color:#f6d860;border:1px solid rgba(246,216,96,.4)}
+  .step-title{font-size:1.3rem;font-weight:700;color:#e0e8ff;margin-bottom:16px}
+  .ctrl-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:rgba(102,126,234,.3);outline:none;width:160px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);cursor:pointer}
+  .slider-label{font-size:.82rem;color:#a0a8c0}
+  .slider-val{font-size:.88rem;color:#f6d860;font-weight:600;min-width:36px}
+  /* Step0 */
+  #net-canvas{width:100%;height:280px}
+  .logit-display{display:flex;gap:12px;margin-top:14px;justify-content:center}
+  .logit-box{background:rgba(255,255,255,.07);border-radius:10px;padding:10px 14px;text-align:center;border:2px solid rgba(255,255,255,.15);cursor:pointer;transition:all .3s;min-width:70px}
+  .logit-box:hover{border-color:#667eea;background:rgba(102,126,234,.15)}
+  .logit-box .emoji{font-size:1.5rem}
+  .logit-box .lname{font-size:.75rem;color:#a0a8c0}
+  .logit-box .lval{font-size:1.1rem;font-weight:700;color:#f6d860}
+  /* Step1 */
+  .argmax-row{display:flex;gap:14px;justify-content:center;align-items:center;margin:20px 0}
+  .am-box{width:80px;height:80px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);transition:all .4s;cursor:pointer}
+  .am-box .aemoji{font-size:1.4rem}
+  .am-box .aval{font-size:1rem;font-weight:700;color:#e0e8ff}
+  .am-box.winner{border-color:#f6d860;background:rgba(246,216,96,.15);transform:scale(1.15)}
+  .am-arrow{font-size:2rem;color:#667eea;transition:opacity .4s;opacity:0}
+  .am-arrow.show{opacity:1}
+  .am-result{font-size:1.2rem;font-weight:700;color:#48c78e;opacity:0;transition:opacity .4s}
+  .am-result.show{opacity:1}
+  .presets-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  /* Step2 */
+  .softmax-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .sm-step-row{display:flex;align-items:center;gap:10px;opacity:.35;transition:opacity .4s}
+  .sm-step-row.active-row{opacity:1}
+  .sm-step-row.done-row{opacity:.8}
+  .sm-step-num{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0}
+  .sm-step-label{font-size:.83rem;color:#a0a8c0;min-width:100px}
+  .sm-vals{display:flex;gap:8px;flex-wrap:wrap}
+  .sm-val-chip{background:rgba(102,126,234,.15);border:1px solid rgba(102,126,234,.4);border-radius:6px;padding:3px 8px;font-size:.82rem;font-family:'Courier New',monospace}
+  .sm-val-chip .chip-val{color:#f6d860;font-weight:700}
+  .stacked-bar{height:28px;border-radius:8px;overflow:hidden;display:flex;margin:8px 0;background:rgba(255,255,255,.05)}
+  .stacked-seg{height:100%;transition:width .6s ease;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;overflow:hidden;white-space:nowrap}
+  .temp-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+  /* Step3 */
+  .compare-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .col-box{background:rgba(0,0,0,.3);border-radius:10px;padding:14px;border:2px solid rgba(255,255,255,.1)}
+  .col-box h4{font-size:.88rem;font-weight:700;margin-bottom:10px;text-align:center}
+  .col-train h4{color:#667eea}
+  .col-infer h4{color:#48c78e}
+  .flow-step{padding:6px 10px;border-radius:6px;font-size:.8rem;margin-bottom:6px;text-align:center;transition:all .4s;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+  .flow-step.flowing{background:rgba(102,126,234,.25);border-color:#667eea;color:#fff}
+  .flow-arrow-small{text-align:center;color:#667eea;font-size:1rem;margin:2px 0;transition:opacity .4s}
+  #compare-canvas{width:100%;height:180px;margin-top:10px}
+  .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+  .modal-overlay.show{display:flex}
+  .modal-box{background:#1a1a2e;border-radius:16px;padding:28px;max-width:440px;width:90%;border:1px solid rgba(102,126,234,.5);position:relative}
+  .modal-box h3{color:#667eea;margin-bottom:12px}
+  .modal-box p{font-size:.88rem;color:#c0c8d8;line-height:1.7;margin-bottom:10px}
+  .modal-close{position:absolute;top:12px;right:16px;background:none;border:none;color:#a0a8c0;font-size:1.2rem;cursor:pointer}
+  /* Step4 */
+  .jacobian-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+  .jac-cell{padding:12px 6px;border-radius:8px;text-align:center;cursor:pointer;transition:all .3s;font-size:.8rem;font-family:'Courier New',monospace;min-height:50px;display:flex;align-items:center;justify-content:center;flex-direction:column}
+  .jac-cell.diag{background:rgba(72,199,142,.12);border:1px solid rgba(72,199,142,.35);color:#48c78e}
+  .jac-cell.offdiag{background:rgba(255,100,100,.1);border:1px solid rgba(255,100,100,.3);color:#ff8080}
+  .jac-cell.selected{outline:3px solid #f6d860;outline-offset:2px}
+  .jac-cell.filled{opacity:1}
+  .jac-cell.empty-cell{opacity:.3}
+  .jac-header{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 4px}
+  .jac-hcell{text-align:center;font-size:.75rem;color:#a0a8c0;padding:4px}
+  .jac-formula-display{margin-top:10px;padding:10px 14px;background:#0d0d1a;border-radius:8px;border:1px solid rgba(102,126,234,.3);min-height:54px;font-family:'Courier New',monospace;font-size:.85rem}
+  /* Step5 */
+  .ce-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+  .ce-row{display:flex;align-items:center;gap:10px}
+  .ce-row-label{font-size:.8rem;color:#a0a8c0;min-width:70px}
+  .ce-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .ce-chip{padding:4px 10px;border-radius:6px;font-size:.83rem;font-family:'Courier New',monospace;border:1px solid}
+  .chip-true{background:rgba(72,199,142,.12);border-color:rgba(72,199,142,.4);color:#48c78e}
+  .chip-pred{background:rgba(102,126,234,.15);border-color:rgba(102,126,234,.4);color:#a0c0ff}
+  .chip-loss{background:rgba(246,216,96,.12);border-color:rgba(246,216,96,.4);color:#f6d860;font-weight:700}
+  #ce-canvas{width:100%;height:200px}
+  .full-formula{display:none;margin-top:10px}
+  .full-formula.show{display:block}
+  .loss-meter{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .loss-num{font-size:1.4rem;font-weight:700;font-family:'Courier New',monospace;transition:color .3s}
+  .loss-label{font-size:.82rem;color:#a0a8c0}
+</style>
+</head>
+<body>
+<div class="page-title">神经网络系列：SoftMax、ArgMax 与交叉熵</div>
+<div class="page-subtitle">从 logits 到概率分布，从训练到推理，逐步拆解 🎓</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+</div>
+
+<div class="step-nav" id="step-nav">
+  <button class="step-btn active" onclick="switchStep(0)">Step 0：问题引入</button>
+  <button class="step-btn" onclick="switchStep(1)">Step 1：ArgMax</button>
+  <button class="step-btn" onclick="switchStep(2)">Step 2：SoftMax</button>
+  <button class="step-btn" onclick="switchStep(3)">Step 3：训练 vs 推理</button>
+  <button class="step-btn" onclick="switchStep(4)">Step 4：SoftMax 导数</button>
+  <button class="step-btn" onclick="switchStep(5)">Step 5：交叉熵损失</button>
+</div>
+
+<div class="container">
+
+<!-- ==================== STEP 0 ==================== -->
+<div class="step-panel active" id="step-0">
+  <div class="step-title">Step 0：问题引入 — 多分类网络输出</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <canvas id="net-canvas"></canvas>
+      <div class="logit-display">
+        <div class="logit-box" id="lb-0" onclick="cycleLogit(0)">
+          <div class="emoji">🐱</div>
+          <div class="lname">猫 (cat)</div>
+          <div class="lval" id="lv-0">2.5</div>
+        </div>
+        <div class="logit-box" id="lb-1" onclick="cycleLogit(1)">
+          <div class="emoji">🐶</div>
+          <div class="lname">狗 (dog)</div>
+          <div class="lval" id="lv-1">1.0</div>
+        </div>
+        <div class="logit-box" id="lb-2" onclick="cycleLogit(2)">
+          <div class="emoji">🐸</div>
+          <div class="lname">蛙 (frog)</div>
+          <div class="lval" id="lv-2">-0.5</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:8px;font-size:.78rem;color:#607090">💡 点击动物图标可切换 logit 值</div>
+      <div class="ctrl-row" style="justify-content:center;margin-top:14px">
+        <button class="btn-primary" onclick="animateNet()">▶ 播放流动动画</button>
+        <button class="btn-secondary" onclick="resetNet()">重置</button>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>🤔 什么是 Logit？</h3>
+        <p>神经网络最后一层（全连接层）的原始输出数值，称为 <strong style="color:#f6d860">logit</strong>。</p>
+        <p style="margin-top:8px">这些数值可以是任意实数，范围 (−∞, +∞)，没有归一化约束。</p>
+      </div>
+      <div class="card">
+        <h3>❓ 为什么不能直接分类？</h3>
+        <ul>
+          <li>数值无法解释为"概率"（可能 &lt;0 或 &gt;1）</li>
+          <li>多个类别的数值之和不为 1</li>
+          <li>无法用于损失函数计算</li>
+          <li>难以量化模型的"置信度"</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📊 示例 logits</h3>
+        <div class="formula">
+          <span class="hl">z = [2.5, 1.0, -0.5]</span><br>
+          <span class="comment">// 猫:2.5  狗:1.0  蛙:-0.5</span><br>
+          <span class="comment">// 最大 ≠ 直接概率</span>
+        </div>
+        <p>我们需要一种方法把这些数转换为合法的概率分布 →</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 1 ==================== -->
+<div class="step-panel" id="step-1">
+  <div class="step-title">Step 1：ArgMax — 最简单的选择</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <div class="presets-row" id="am-presets">
+        <button class="btn-secondary active-preset" onclick="setPreset(0)">示例 A: [2.5,1.0,-0.5]</button>
+        <button class="btn-secondary" onclick="setPreset(1)">示例 B: [0.3,3.1,0.8]</button>
+        <button class="btn-secondary" onclick="setPreset(2)">示例 C: [-1.0,-0.5,-1.5]</button>
+      </div>
+      <div class="argmax-row">
+        <div class="am-box" id="am-0">
+          <div class="aemoji">🐱</div>
+          <div class="aval" id="am-v0">2.5</div>
+        </div>
+        <div class="am-box" id="am-1">
+          <div class="aemoji">🐶</div>
+          <div class="aval" id="am-v1">1.0</div>
+        </div>
+        <div class="am-box" id="am-2">
+          <div class="aemoji">🐸</div>
+          <div class="aval" id="am-v2">-0.5</div>
+        </div>
+        <div class="am-arrow" id="am-arrow">→</div>
+        <div class="am-result" id="am-result">✅ 猫</div>
+      </div>
+      <div class="ctrl-row" style="justify-content:center">
+        <button class="btn-primary" id="btn-argmax" onclick="runArgmax()">▶ 运行 ArgMax</button>
+        <button class="btn-secondary" onclick="resetArgmax()">重置</button>
+      </div>
+      <div style="margin-top:20px;padding:14px;background:rgba(246,216,96,.08);border-radius:8px;border:1px solid rgba(246,216,96,.2)">
+        <div style="font-size:.83rem;color:#c0c8d8;margin-bottom:6px">💡 ArgMax 就是找最大值的<strong style="color:#f6d860">下标</strong>：</div>
+        <div class="formula" style="margin:0">
+          argmax([<span class="hl">2.5</span>, 1.0, -0.5]) = <span class="hl">0</span>
+          <span class="comment"> // 索引 0 → 猫</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>✅ ArgMax 的优点</h3>
+        <ul>
+          <li>简单直观，计算极快</li>
+          <li>推理时直接得出类别</li>
+          <li>不需要归一化</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>❌ ArgMax 的缺点</h3>
+        <ul>
+          <li>输出是离散的 0/1，<strong style="color:#ff6464">不可微</strong></li>
+          <li>梯度处处为 0，无法反向传播</li>
+          <li>丢失概率信息（无置信度）</li>
+          <li><strong style="color:#ff6464">不能用于训练！</strong></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📐 公式</h3>
+        <div class="formula">
+          <span class="hl">argmax</span>(z) = i* where<br>
+          z[i*] = max(z[0], z[1], ..., z[n])
+        </div>
+        <div style="margin-top:8px;padding:8px;background:rgba(255,100,100,.1);border-radius:6px;border:1px solid rgba(255,100,100,.3)">
+          <span style="color:#ff8080;font-size:.83rem">⚠️ 梯度 = 0 ❌</span><br>
+          <span style="font-size:.8rem;color:#c0c8d8">ArgMax 是阶梯函数，导数在切换点不存在，其余处为 0。训练时无法通过梯度下降更新权重。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 2 ==================== -->
+<div class="step-panel" id="step-2">
+  <div class="step-title">Step 2：SoftMax — 把 logits 变成概率</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <div class="softmax-steps" id="sm-steps">
+        <div class="sm-step-row active-row" id="smr-0">
+          <div class="sm-step-num">0</div>
+          <div class="sm-step-label">原始 logits</div>
+          <div class="sm-vals">
+            <div class="sm-val-chip">🐱 <span class="chip-val">2.5</span></div>
+            <div class="sm-val-chip">🐶 <span class="chip-val">1.0</span></div>
+            <div class="sm-val-chip">🐸 <span class="chip-val">-0.5</span></div>
+          </div>
+        </div>
+        <div class="sm-step-row" id="smr-1">
+          <div class="sm-step-num">1</div>
+          <div class="sm-step-label">取指数 e^z</div>
+          <div class="sm-vals" id="sm-exp-vals">
+            <div class="sm-val-chip">🐱 e<sup>2.5</sup> = <span class="chip-val" id="sv-e0">?</span></div>
+            <div class="sm-val-chip">🐶 e<sup>1.0</sup> = <span class="chip-val" id="sv-e1">?</span></div>
+            <div class="sm-val-chip">🐸 e<sup>-0.5</sup> = <span class="chip-val" id="sv-e2">?</span></div>
+          </div>
+        </div>
+        <div class="sm-step-row" id="smr-2">
+          <div class="sm-step-num">2</div>
+          <div class="sm-step-label">求和 Σ</div>
+          <div class="sm-vals">
+            <div class="sm-val-chip">sum = <span class="chip-val" id="sv-sum">?</span></div>
+          </div>
+        </div>
+        <div class="sm-step-row" id="smr-3">
+          <div class="sm-step-num">3</div>
+          <div class="sm-step-label">归一化</div>
+          <div class="sm-vals" id="sm-prob-vals">
+            <div class="sm-val-chip">🐱 <span class="chip-val" id="sv-p0">?</span></div>
+            <div class="sm-val-chip">🐶 <span class="chip-val" id="sv-p1">?</span></div>
+            <div class="sm-val-chip">🐸 <span class="chip-val" id="sv-p2">?</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="stacked-bar" id="sm-bar">
+        <div class="stacked-seg" id="sm-seg0" style="width:0%;background:#667eea"></div>
+        <div class="stacked-seg" id="sm-seg1" style="width:0%;background:#764ba2"></div>
+        <div class="stacked-seg" id="sm-seg2" style="width:0%;background:#e8509a"></div>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn-primary" id="btn-sm-auto" onclick="smAuto()">▶ 自动演示</button>
+        <button class="btn-secondary" onclick="smStep()">单步执行</button>
+        <button class="btn-secondary" onclick="smReset()">重置</button>
+      </div>
+      <div class="temp-row">
+        <span class="slider-label">温度 T：</span>
+        <input type="range" id="temp-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="onTempChange()">
+        <span class="slider-val" id="temp-val">1.0</span>
+        <span class="slider-label">（实时更新分布）</span>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>📐 SoftMax 公式</h3>
+        <div class="formula">
+          P(i) = <span class="hl">e^(z[i]/T)</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──────────<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl">Σ e^(z[j]/T)</span>
+        </div>
+        <p style="margin-top:6px">T 为温度参数，默认 T=1</p>
+      </div>
+      <div class="card">
+        <h3>✅ SoftMax 的性质</h3>
+        <ul>
+          <li>输出范围 <span class="badge badge-green">(0, 1)</span></li>
+          <li>所有概率之和 <span class="badge badge-green">= 1</span></li>
+          <li>保持相对大小顺序</li>
+          <li>全程可微，支持梯度回传 <span class="badge badge-green">✓</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🌡️ 温度参数 T</h3>
+        <ul>
+          <li><strong style="color:#f6d860">T → 0</strong>：趋近 ArgMax（概率更尖锐）</li>
+          <li><strong style="color:#f6d860">T = 1</strong>：标准 SoftMax</li>
+          <li><strong style="color:#f6d860">T → ∞</strong>：均匀分布（熵最大）</li>
+        </ul>
+        <p style="margin-top:6px;font-size:.8rem">拖动滑块观察温度对概率分布的影响！</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 3 ==================== -->
+<div class="step-panel" id="step-3">
+  <div class="step-title">Step 3：训练 vs 推理 — 分工明确</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <div class="compare-cols">
+        <div class="col-box col-train">
+          <h4>🔧 训练阶段</h4>
+          <div class="flow-step" id="ft-0">logits z</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="ft-1">SoftMax →概率 P</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="ft-2">交叉熵损失 L</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="ft-3">反向传播 ∂L/∂z</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="ft-4">更新权重 W</div>
+        </div>
+        <div class="col-box col-infer">
+          <h4>⚡ 推理阶段</h4>
+          <div class="flow-step" id="fi-0">logits z</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="fi-1">ArgMax</div>
+          <div class="flow-arrow-small">↓</div>
+          <div class="flow-step" id="fi-2">预测类别 ✅</div>
+          <div style="height:90px;display:flex;align-items:center;justify-content:center;color:#607090;font-size:.8rem">（无需反向传播）</div>
+        </div>
+      </div>
+      <div class="ctrl-row" style="justify-content:center;margin-bottom:10px">
+        <button class="btn-primary" id="btn-flow" onclick="startFlow()">▶ 开始流动</button>
+        <button class="btn-secondary" onclick="resetFlow()">重置</button>
+        <button class="btn-secondary" onclick="showDerivModal()">为什么 SoftMax 可导？</button>
+      </div>
+      <canvas id="compare-canvas"></canvas>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>🎯 核心结论</h3>
+        <ul>
+          <li><strong style="color:#667eea">训练时用 SoftMax</strong>：可导，能计算梯度，权重才能更新</li>
+          <li style="margin-top:6px"><strong style="color:#48c78e">推理时用 ArgMax</strong>：快速直接，取最大值即为预测类别</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📈 函数对比</h3>
+        <ul>
+          <li>ArgMax：<span class="badge badge-red">不连续</span> <span class="badge badge-red">不可微</span></li>
+          <li>SoftMax：<span class="badge badge-green">连续</span> <span class="badge badge-green">处处可微</span></li>
+        </ul>
+        <p style="margin-top:8px;font-size:.82rem">左侧图中，蓝线是 SoftMax（平滑），红线是 ArgMax（阶梯）</p>
+      </div>
+      <div class="card">
+        <h3>💡 实际技巧</h3>
+        <p>在实现中，<strong style="color:#f6d860">CrossEntropyLoss</strong> 通常内置了 SoftMax 计算（log-softmax），数值更稳定，无需手动调用 SoftMax 再传入损失函数。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 4 ==================== -->
+<div class="step-panel" id="step-4">
+  <div class="step-title">Step 4：SoftMax 的导数 — 雅可比矩阵</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <div style="font-size:.83rem;color:#a0a8c0;margin-bottom:6px">P = [<span style="color:#f6d860">0.764</span>, <span style="color:#b080ff">0.175</span>, <span style="color:#ff80b0">0.061</span>]&nbsp; — 点击格子查看公式推导</div>
+      <div class="jac-header">
+        <div class="jac-hcell">∂P₀/∂z₀&nbsp;∂P₀/∂z₁&nbsp;∂P₀/∂z₂</div>
+        <div class="jac-hcell"></div>
+        <div class="jac-hcell">输入 z →</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;justify-content:space-around;height:170px;font-size:.75rem;color:#a0a8c0;padding-top:8px">
+          <span>∂P₀</span><span>∂P₁</span><span>∂P₂</span>
+        </div>
+        <div class="jacobian-grid" id="jac-grid" style="flex:1">
+          <!-- filled by JS -->
+        </div>
+      </div>
+      <div class="jac-formula-display" id="jac-formula">
+        <span style="color:#607090">← 点击任意格子，在此处显示推导过程</span>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn-primary" onclick="fillJacobian()">▶ 逐格填入</button>
+        <button class="btn-secondary" onclick="resetJacobian()">重置</button>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>📐 导数公式</h3>
+        <div class="formula">
+          <span class="comment">// 对角元素 (i == j):</span><br>
+          ∂P(i)/∂z(i) = <span class="hl">P(i)·(1-P(i))</span><br><br>
+          <span class="comment">// 非对角 (i ≠ j):</span><br>
+          ∂P(i)/∂z(j) = <span class="hl">-P(i)·P(j)</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🔗 链式法则</h3>
+        <p>通过链式法则传播梯度：</p>
+        <div class="formula">
+          ∂L/∂z(i) = <span class="hl">Σⱼ (∂L/∂P(j))·(∂P(j)/∂z(i))</span>
+        </div>
+        <p style="margin-top:6px">当与交叉熵结合时，梯度简化为：</p>
+        <div class="formula">
+          ∂L/∂z(i) = <span class="hl">P(i) - y(i)</span>
+        </div>
+        <p style="margin-top:4px;font-size:.8rem">（预测概率 − 真实标签，形式优雅）</p>
+      </div>
+      <div class="card">
+        <h3>🎨 颜色含义</h3>
+        <ul>
+          <li><span class="badge badge-green">绿色</span> 对角线：正导数，值更大时梯度为正</li>
+          <li><span class="badge badge-red">红色</span> 非对角：负导数，抑制其他类别</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 5 ==================== -->
+<div class="step-panel" id="step-5">
+  <div class="step-title">Step 5：交叉熵损失 — 量化预测误差</div>
+  <div class="main-area">
+    <div class="viz-panel">
+      <div class="ce-rows">
+        <div class="ce-row">
+          <div class="ce-row-label">真实标签 y</div>
+          <div class="ce-chips">
+            <div class="ce-chip chip-true">🐱&nbsp;1</div>
+            <div class="ce-chip chip-true">🐶&nbsp;0</div>
+            <div class="ce-chip chip-true">🐸&nbsp;0</div>
+            <span style="font-size:.78rem;color:#a0a8c0;margin-left:4px">(one-hot)</span>
+          </div>
+        </div>
+        <div class="ce-row">
+          <div class="ce-row-label">预测概率 P</div>
+          <div class="ce-chips">
+            <div class="ce-chip chip-pred">🐱&nbsp;<span id="ce-p0">0.764</span></div>
+            <div class="ce-chip chip-pred">🐶&nbsp;<span id="ce-p1">0.175</span></div>
+            <div class="ce-chip chip-pred">🐸&nbsp;<span id="ce-p2">0.061</span></div>
+          </div>
+        </div>
+        <div class="ce-row">
+          <div class="ce-row-label">交叉熵 Loss</div>
+          <div class="ce-chips">
+            <div class="ce-chip chip-loss">L = -log(<span id="ce-conf-disp">0.764</span>) ≈ <span id="ce-loss-val">0.269</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="loss-meter">
+        <div class="loss-num" id="ce-loss-big" style="color:#48c78e">0.269</div>
+        <div class="loss-label">当前 Loss（越小越好）</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span class="slider-label">预测置信度 P(猫)：</span>
+        <input type="range" id="conf-slider" min="0.01" max="0.99" step="0.01" value="0.764" oninput="onConfChange()">
+        <span class="slider-val" id="conf-val">0.764</span>
+      </div>
+      <canvas id="ce-canvas"></canvas>
+      <div class="ctrl-row">
+        <button class="btn-secondary" onclick="toggleFullFormula()">展开完整公式</button>
+      </div>
+      <div class="full-formula" id="full-formula">
+        <div class="formula">
+          L = <span class="hl">-Σᵢ y(i) · log(P(i))</span><br>
+          <span class="comment">// one-hot 时只有真实类别项非零:</span><br>
+          L = <span class="hl">-log(P(correct_class))</span><br><br>
+          <span class="comment">// 示例: y=[1,0,0], P=[0.764,0.175,0.061]</span><br>
+          L = -(1·log(0.764) + 0·log(0.175) + 0·log(0.061))<br>
+          &nbsp;&nbsp;= <span class="hl">-log(0.764) ≈ 0.269</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>✅ 交叉熵的优势</h3>
+        <ul>
+          <li>始终为正，且可微</li>
+          <li>预测越准确，Loss 越小（趋 0）</li>
+          <li>预测错误时，Loss 急剧增大</li>
+          <li>与 SoftMax 梯度配合优雅简洁</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🎯 训练目标</h3>
+        <p>最小化交叉熵 = 最大化正确类别的预测概率</p>
+        <div class="formula">
+          min L = min(-log P(y*))<br>
+          <span class="hl">⟺ max P(correct_class)</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📊 曲线直觉</h3>
+        <ul>
+          <li>P→1：Loss→0（完美预测）</li>
+          <li>P→0：Loss→∞（完全错误，巨大惩罚）</li>
+          <li>曲线凸，梯度下降能找到全局最优</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .container -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="deriv-modal" onclick="closeDerivModal(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeDerivModal()">✕</button>
+    <h3>🔍 为什么 SoftMax 处处可导？</h3>
+    <p>SoftMax 由指数函数（e^x）和除法组成，两者都是可微的初等函数。</p>
+    <p>只要分母（归一化项 Σe^z）不为零（指数函数恒正，所以永不为零），SoftMax 对任意输入 z 都有定义且可微。</p>
+    <div class="formula" style="font-size:.8rem">
+      <span class="hl">P(i) = e^z(i) / Σⱼ e^z(j)</span><br>
+      分子: e^z(i) — 指数函数，∞ 可微<br>
+      分母: Σⱼ e^z(j) &gt; 0 — 商法则可用
+    </div>
+    <p>对比 ArgMax：输出是离散整数，切换点处不连续，导数不存在，非切换处导数为 0。</p>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let currentStep = 0;
+let animating = false;
+const STEPS = 6;
+
+// Step0 logits
+const logitCycles = [
+  [2.5, 1.0, -0.5],
+  [3.0, 0.5, -1.0],
+  [1.5, 2.0, 0.8],
+  [0.2, 0.1, 0.3]
+];
+let logitCycleIdx = [0, 0, 0];
+let currentLogits = [2.5, 1.0, -0.5];
+let netAnim = null;
+let netAnimProgress = 0;
+
+// Step1
+const presets = [
+  { logits: [2.5, 1.0, -0.5], labels: ['🐱 猫', '🐶 狗', '🐸 蛙'] },
+  { logits: [0.3, 3.1, 0.8], labels: ['🐱 猫', '🐶 狗', '🐸 蛙'] },
+  { logits: [-1.0, -0.5, -1.5], labels: ['🐱 猫', '🐶 狗', '🐸 蛙'] }
+];
+let currentPreset = 0;
+let argmaxDone = false;
+
+// Step2
+let smCurrentStep = 0;
+let smAutoTimer = null;
+let currentTemp = 1.0;
+
+// Step3
+let flowTimer = null;
+let flowIdx = 0;
+
+// Step4
+let jacFilled = 0;
+let jacFillTimer = null;
+const P4 = [0.764, 0.175, 0.061];
+
+// Step5
+let confVal = 0.764;
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchStep(n) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  document.querySelectorAll('.step-btn')[n].classList.add('active');
+  const pct = (n / (STEPS - 1)) * 100;
+  document.getElementById('prog-bar').style.width = pct + '%';
+  currentStep = n;
+  initStep(n);
+}
+
+function initStep(n) {
+  if (n === 0) initStep0();
+  if (n === 1) initStep1();
+  if (n === 2) initStep2();
+  if (n === 3) initStep3();
+  if (n === 4) initStep4();
+  if (n === 5) initStep5();
+}
+
+// ============================================================
+// STEP 0 — Neural Network Canvas
+// ============================================================
+function initStep0() {
+  drawNet(0);
+  updateLogitBoxes();
+}
+
+function getCanvas(id, w, h) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const dpr = window.devicePixelRatio || 1;
+  el.width = w * dpr;
+  el.height = h * dpr;
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+  const ctx = el.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { el, ctx, w, h };
+}
+
+function drawNet(progress) {
+  const el = document.getElementById('net-canvas');
+  if (!el) return;
+  const rect = el.parentElement.getBoundingClientRect();
+  const W = rect.width - 40 || 500;
+  const H = 260;
+  const dpr = window.devicePixelRatio || 1;
+  el.width = W * dpr;
+  el.height = H * dpr;
+  el.style.width = W + 'px';
+  el.style.height = H + 'px';
+  const ctx = el.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // layers: input(4 nodes), hidden(5 nodes), output(3 nodes)
+  const layers = [
+    { x: W * 0.1, nodes: 4, color: '#667eea', r: 18 },
+    { x: W * 0.45, nodes: 5, color: '#764ba2', r: 18 },
+    { x: W * 0.82, nodes: 3, color: null, r: 22 } // color per node
+  ];
+  const outColors = ['#f6a020', '#20c8a0', '#e050a0'];
+  const outEmojis = ['🐱', '🐶', '🐸'];
+  const logitVals = currentLogits;
+
+  // compute node positions
+  function nodePos(layer, i) {
+    const n = layer.nodes;
+    const spacing = Math.min((H - 40) / n, 52);
+    const totalH = (n - 1) * spacing;
+    const startY = (H - totalH) / 2;
+    return { x: layer.x, y: startY + i * spacing };
+  }
+
+  // draw connections (progress: 0 = not started, 1 = fully lit)
+  ctx.save();
+  for (let li = 0; li < layers.length - 1; li++) {
+    const lA = layers[li], lB = layers[li + 1];
+    for (let a = 0; a < lA.nodes; a++) {
+      const pA = nodePos(lA, a);
+      for (let b = 0; b < lB.nodes; b++) {
+        const pB = nodePos(lB, b);
+        // flow position along this connection
+        const segProgress = Math.max(0, Math.min(1, progress * 2 - li));
+        ctx.beginPath();
+        ctx.moveTo(pA.x, pA.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.strokeStyle = 'rgba(102,126,234,0.15)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        if (segProgress > 0) {
+          ctx.beginPath();
+          const mx = pA.x + (pB.x - pA.x) * segProgress;
+          const my = pA.y + (pB.y - pA.y) * segProgress;
+          ctx.moveTo(pA.x, pA.y);
+          ctx.lineTo(mx, my);
+          ctx.strokeStyle = `rgba(246,216,96,${0.5 + segProgress * 0.4})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+  ctx.restore();
+
+  // draw nodes
+  for (let li = 0; li < layers.length; li++) {
+    const layer = layers[li];
+    for (let i = 0; i < layer.nodes; i++) {
+      const pos = nodePos(layer, i);
+      const isOut = li === layers.length - 1;
+      const color = isOut ? outColors[i] : layer.color;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, layer.r, 0, Math.PI * 2);
+      ctx.fillStyle = color + '33';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      if (isOut) {
+        // label with logit value
+        ctx.font = '11px PingFang SC, sans-serif';
+        ctx.fillStyle = '#e0e8ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(logitVals[i].toFixed(1), pos.x, pos.y);
+        ctx.font = '18px serif';
+        ctx.fillText(outEmojis[i], pos.x + layer.r + 10, pos.y);
+      } else {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+    }
+  }
+
+  // layer labels
+  ctx.font = '11px PingFang SC, sans-serif';
+  ctx.fillStyle = '#607090';
+  ctx.textAlign = 'center';
+  ctx.fillText('输入层', layers[0].x, H - 8);
+  ctx.fillText('隐藏层', layers[1].x, H - 8);
+  ctx.fillText('输出 logits', layers[2].x + 10, H - 8);
+}
+
+function animateNet() {
+  if (animating) return;
+  animating = true;
+  netAnimProgress = 0;
+  const start = performance.now();
+  const duration = 1600;
+  function frame(now) {
+    netAnimProgress = Math.min(1, (now - start) / duration);
+    drawNet(netAnimProgress);
+    if (netAnimProgress < 1) requestAnimationFrame(frame);
+    else animating = false;
+  }
+  requestAnimationFrame(frame);
+}
+
+function resetNet() {
+  animating = false;
+  netAnimProgress = 0;
+  drawNet(0);
+}
+
+function cycleLogit(idx) {
+  logitCycleIdx[idx] = (logitCycleIdx[idx] + 1) % logitCycles.length;
+  currentLogits[idx] = logitCycles[logitCycleIdx[idx]][idx];
+  updateLogitBoxes();
+  drawNet(netAnimProgress);
+}
+
+function updateLogitBoxes() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('lv-' + i).textContent = currentLogits[i].toFixed(1);
+  }
+}
+
+// ============================================================
+// STEP 1 — ArgMax
+// ============================================================
+function initStep1() {
+  applyPreset(0);
+}
+
+function applyPreset(idx) {
+  currentPreset = idx;
+  const p = presets[idx];
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('am-' + i).classList.remove('winner');
+    document.getElementById('am-v' + i).textContent = p.logits[i].toFixed(1);
+  }
+  document.getElementById('am-arrow').classList.remove('show');
+  document.getElementById('am-result').classList.remove('show');
+  document.getElementById('am-result').textContent = '';
+  document.querySelectorAll('#am-presets .btn-secondary').forEach((b, i) => {
+    b.classList.toggle('active-preset', i === idx);
+  });
+  argmaxDone = false;
+}
+
+function setPreset(idx) { applyPreset(idx); }
+
+function runArgmax() {
+  if (argmaxDone) return;
+  const p = presets[currentPreset];
+  const vals = p.logits;
+  const maxIdx = vals.indexOf(Math.max(...vals));
+  const labels = ['猫', '狗', '蛙'];
+  const emojis = ['🐱', '🐶', '🐸'];
+
+  let count = 0;
+  const flash = setInterval(() => {
+    const box = document.getElementById('am-' + maxIdx);
+    box.classList.toggle('winner');
+    count++;
+    if (count >= 6) {
+      clearInterval(flash);
+      box.classList.add('winner');
+      const arrow = document.getElementById('am-arrow');
+      const result = document.getElementById('am-result');
+      arrow.classList.add('show');
+      result.textContent = '✅ ' + labels[maxIdx];
+      result.classList.add('show');
+      argmaxDone = true;
+    }
+  }, 200);
+}
+
+function resetArgmax() { applyPreset(currentPreset); }
+
+// ============================================================
+// STEP 2 — SoftMax
+// ============================================================
+function initStep2() {
+  smCurrentStep = 0;
+  currentTemp = 1.0;
+  document.getElementById('temp-slider').value = '1.0';
+  document.getElementById('temp-val').textContent = '1.0';
+  smReset();
+}
+
+function softmax(logits, T) {
+  const shifted = logits.map(z => z / T);
+  const maxZ = Math.max(...shifted);
+  const exps = shifted.map(z => Math.exp(z - maxZ));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sum);
+}
+
+function smReset() {
+  smCurrentStep = 0;
+  if (smAutoTimer) { clearTimeout(smAutoTimer); smAutoTimer = null; }
+  ['smr-0','smr-1','smr-2','smr-3'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active-row','done-row');
+    if (i === 0) el.classList.add('active-row');
+  });
+  document.getElementById('sv-e0').textContent = '?';
+  document.getElementById('sv-e1').textContent = '?';
+  document.getElementById('sv-e2').textContent = '?';
+  document.getElementById('sv-sum').textContent = '?';
+  document.getElementById('sv-p0').textContent = '?';
+  document.getElementById('sv-p1').textContent = '?';
+  document.getElementById('sv-p2').textContent = '?';
+  ['sm-seg0','sm-seg1','sm-seg2'].forEach(id => {
+    document.getElementById(id).style.width = '0%';
+    document.getElementById(id).textContent = '';
+  });
+}
+
+function animateNumber(el, from, to, decimals, suffix, duration) {
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const val = from + (to - from) * ease;
+    el.textContent = val.toFixed(decimals) + (suffix || '');
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function smStep() {
+  const logits = [2.5, 1.0, -0.5];
+  const T = currentTemp;
+  const shifted = logits.map(z => z / T);
+  const maxZ = Math.max(...shifted);
+  const exps = shifted.map(z => Math.exp(z - maxZ));
+  // Un-shift to show correct values
+  const rawExps = logits.map(z => Math.exp(z / T));
+  const sum = rawExps.reduce((a, b) => a + b, 0);
+  const probs = rawExps.map(e => e / sum);
+
+  const activate = (rowId) => {
+    document.getElementById(rowId).classList.add('active-row');
+    document.getElementById(rowId).classList.remove('done-row');
+  };
+  const done = (rowId) => {
+    document.getElementById(rowId).classList.remove('active-row');
+    document.getElementById(rowId).classList.add('done-row');
+  };
+
+  if (smCurrentStep === 0) {
+    done('smr-0');
+    activate('smr-1');
+    animateNumber(document.getElementById('sv-e0'), 0, rawExps[0], 2, '', 600);
+    animateNumber(document.getElementById('sv-e1'), 0, rawExps[1], 2, '', 600);
+    animateNumber(document.getElementById('sv-e2'), 0, rawExps[2], 2, '', 600);
+    smCurrentStep = 1;
+  } else if (smCurrentStep === 1) {
+    done('smr-1');
+    activate('smr-2');
+    animateNumber(document.getElementById('sv-sum'), 0, sum, 2, '', 600);
+    smCurrentStep = 2;
+  } else if (smCurrentStep === 2) {
+    done('smr-2');
+    activate('smr-3');
+    animateNumber(document.getElementById('sv-p0'), 0, probs[0] * 100, 1, '%', 600);
+    animateNumber(document.getElementById('sv-p1'), 0, probs[1] * 100, 1, '%', 600);
+    animateNumber(document.getElementById('sv-p2'), 0, probs[2] * 100, 1, '%', 600);
+    setTimeout(() => {
+      const seg0 = document.getElementById('sm-seg0');
+      const seg1 = document.getElementById('sm-seg1');
+      const seg2 = document.getElementById('sm-seg2');
+      seg0.style.width = (probs[0] * 100) + '%';
+      seg0.textContent = (probs[0] * 100).toFixed(1) + '%';
+      seg1.style.width = (probs[1] * 100) + '%';
+      seg1.textContent = (probs[1] * 100).toFixed(1) + '%';
+      seg2.style.width = (probs[2] * 100) + '%';
+      seg2.textContent = (probs[2] * 100).toFixed(1) + '%';
+    }, 300);
+    smCurrentStep = 3;
+  }
+}
+
+function smAuto() {
+  smReset();
+  let delay = 300;
+  [1, 2, 3].forEach((_, i) => {
+    smAutoTimer = setTimeout(() => smStep(), delay + i * 1200);
+  });
+}
+
+function onTempChange() {
+  currentTemp = parseFloat(document.getElementById('temp-slider').value);
+  document.getElementById('temp-val').textContent = currentTemp.toFixed(1);
+  if (smCurrentStep >= 3) {
+    const logits = [2.5, 1.0, -0.5];
+    const probs = softmax(logits, currentTemp);
+    document.getElementById('sv-p0').textContent = (probs[0] * 100).toFixed(1) + '%';
+    document.getElementById('sv-p1').textContent = (probs[1] * 100).toFixed(1) + '%';
+    document.getElementById('sv-p2').textContent = (probs[2] * 100).toFixed(1) + '%';
+    document.getElementById('sm-seg0').style.width = (probs[0] * 100) + '%';
+    document.getElementById('sm-seg0').textContent = (probs[0] * 100).toFixed(1) + '%';
+    document.getElementById('sm-seg1').style.width = (probs[1] * 100) + '%';
+    document.getElementById('sm-seg1').textContent = (probs[1] * 100).toFixed(1) + '%';
+    document.getElementById('sm-seg2').style.width = (probs[2] * 100) + '%';
+    document.getElementById('sm-seg2').textContent = (probs[2] * 100).toFixed(1) + '%';
+    // also update exp values
+    const rawExps = [2.5, 1.0, -0.5].map(z => Math.exp(z / currentTemp));
+    document.getElementById('sv-e0').textContent = rawExps[0].toFixed(2);
+    document.getElementById('sv-e1').textContent = rawExps[1].toFixed(2);
+    document.getElementById('sv-e2').textContent = rawExps[2].toFixed(2);
+    document.getElementById('sv-sum').textContent = rawExps.reduce((a,b)=>a+b,0).toFixed(2);
+  }
+}
+
+// ============================================================
+// STEP 3 — Compare
+// ============================================================
+function initStep3() {
+  resetFlow();
+  drawCompareCanvas();
+}
+
+function resetFlow() {
+  if (flowTimer) { clearInterval(flowTimer); flowTimer = null; }
+  flowIdx = 0;
+  ['ft-0','ft-1','ft-2','ft-3','ft-4','fi-0','fi-1','fi-2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('flowing');
+  });
+}
+
+function startFlow() {
+  resetFlow();
+  const trainSteps = ['ft-0','ft-1','ft-2','ft-3','ft-4'];
+  const inferSteps = ['fi-0','fi-1','fi-2'];
+  let ti = 0, ii = 0;
+  flowTimer = setInterval(() => {
+    if (ti < trainSteps.length) {
+      document.getElementById(trainSteps[ti]).classList.add('flowing');
+      ti++;
+    }
+    if (ii < inferSteps.length) {
+      document.getElementById(inferSteps[ii]).classList.add('flowing');
+      ii++;
+    }
+    if (ti >= trainSteps.length && ii >= inferSteps.length) {
+      clearInterval(flowTimer);
+    }
+  }, 500);
+}
+
+function drawCompareCanvas() {
+  const el = document.getElementById('compare-canvas');
+  if (!el) return;
+  const rect = el.parentElement.getBoundingClientRect();
+  const W = rect.width - 40 || 500;
+  const H = 170;
+  const dpr = window.devicePixelRatio || 1;
+  el.width = W * dpr;
+  el.height = H * dpr;
+  el.style.width = W + 'px';
+  el.style.height = H + 'px';
+  const ctx = el.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 50, r: 20, t: 20, b: 30 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  // axes
+  ctx.strokeStyle = '#405070';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + ph);
+  ctx.lineTo(pad.l + pw, pad.t + ph);
+  ctx.stroke();
+
+  ctx.fillStyle = '#607090';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('输入 z', pad.l + pw / 2, H - 4);
+  ctx.save();
+  ctx.translate(14, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('输出', 0, 0);
+  ctx.restore();
+
+  // SoftMax curve (1 class, 2 logits: z vs -z)
+  ctx.beginPath();
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 2.5;
+  let first = true;
+  for (let xi = 0; xi <= pw; xi++) {
+    const z = (xi / pw) * 6 - 3;
+    const p = 1 / (1 + Math.exp(-z));
+    const sx = pad.l + xi;
+    const sy = pad.t + ph * (1 - p);
+    if (first) { ctx.moveTo(sx, sy); first = false; }
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+
+  // ArgMax step function
+  ctx.beginPath();
+  ctx.strokeStyle = '#ff6464';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 3]);
+  const midX = pad.l + pw / 2;
+  ctx.moveTo(pad.l, pad.t + ph);
+  ctx.lineTo(midX, pad.t + ph);
+  ctx.moveTo(midX, pad.t + ph);
+  ctx.lineTo(midX, pad.t);
+  ctx.moveTo(midX, pad.t);
+  ctx.lineTo(pad.l + pw, pad.t);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // legend
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#667eea';
+  ctx.fillText('— SoftMax (可微)', pad.l + 70, pad.t + 14);
+  ctx.fillStyle = '#ff6464';
+  ctx.fillText('--- ArgMax (不可微)', pad.l + 70, pad.t + 28);
+}
+
+function showDerivModal() {
+  document.getElementById('deriv-modal').classList.add('show');
+}
+
+function closeDerivModal(e) {
+  if (!e || e.target === document.getElementById('deriv-modal') || e.target.classList.contains('modal-close')) {
+    document.getElementById('deriv-modal').classList.remove('show');
+  }
+}
+
+// ============================================================
+// STEP 4 — Jacobian
+// ============================================================
+function initStep4() {
+  jacFilled = 0;
+  renderJacobianEmpty();
+  document.getElementById('jac-formula').innerHTML = '<span style="color:#607090">← 点击任意格子，在此处显示推导过程</span>';
+}
+
+function renderJacobianEmpty() {
+  const grid = document.getElementById('jac-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'jac-cell empty-cell ' + (i === j ? 'diag' : 'offdiag');
+      cell.id = 'jac-' + i + '-' + j;
+      cell.innerHTML = '?';
+      cell.onclick = () => clickJacCell(i, j);
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function clickJacCell(i, j) {
+  document.querySelectorAll('.jac-cell').forEach(c => c.classList.remove('selected'));
+  document.getElementById('jac-' + i + '-' + j).classList.add('selected');
+  showJacFormula(i, j);
+}
+
+function showJacFormula(i, j) {
+  const Pi = P4[i].toFixed(3);
+  const Pj = P4[j].toFixed(3);
+  const disp = document.getElementById('jac-formula');
+  if (i === j) {
+    const val = (P4[i] * (1 - P4[i])).toFixed(4);
+    disp.innerHTML = `<span style="color:#a0c0ff">∂P(${i})/∂z(${i})</span> &nbsp;[对角线 i==j]<br>`
+      + `= <span style="color:#48c78e">P(${i}) · (1 - P(${i}))</span><br>`
+      + `= ${Pi} × (1 - ${Pi})<br>`
+      + `= <span style="color:#f6d860">${val}</span>`;
+  } else {
+    const val = (-(P4[i] * P4[j])).toFixed(4);
+    disp.innerHTML = `<span style="color:#a0c0ff">∂P(${i})/∂z(${j})</span> &nbsp;[非对角 i≠j]<br>`
+      + `= <span style="color:#ff8080">-P(${i}) · P(${j})</span><br>`
+      + `= -(${Pi} × ${Pj})<br>`
+      + `= <span style="color:#f6d860">${val}</span>`;
+  }
+}
+
+function fillJacobian() {
+  if (jacFillTimer) { clearInterval(jacFillTimer); jacFillTimer = null; }
+  jacFilled = 0;
+  renderJacobianEmpty();
+  const order = [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]];
+  jacFillTimer = setInterval(() => {
+    if (jacFilled >= order.length) { clearInterval(jacFillTimer); return; }
+    const [i, j] = order[jacFilled];
+    const cell = document.getElementById('jac-' + i + '-' + j);
+    cell.classList.remove('empty-cell');
+    cell.classList.add('filled');
+    if (i === j) {
+      const val = (P4[i] * (1 - P4[i])).toFixed(3);
+      cell.innerHTML = `<small>P${i}·(1-P${i})</small><br><strong>${val}</strong>`;
+    } else {
+      const val = (-(P4[i] * P4[j])).toFixed(3);
+      cell.innerHTML = `<small>-P${i}·P${j}</small><br><strong>${val}</strong>`;
+    }
+    showJacFormula(i, j);
+    cell.classList.add('selected');
+    if (jacFilled > 0) {
+      const [pi, pj] = order[jacFilled - 1];
+      document.getElementById('jac-' + pi + '-' + pj).classList.remove('selected');
+    }
+    jacFilled++;
+  }, 400);
+}
+
+function resetJacobian() {
+  if (jacFillTimer) { clearInterval(jacFillTimer); jacFillTimer = null; }
+  jacFilled = 0;
+  renderJacobianEmpty();
+  document.getElementById('jac-formula').innerHTML = '<span style="color:#607090">← 点击任意格子，在此处显示推导过程</span>';
+}
+
+// ============================================================
+// STEP 5 — Cross Entropy
+// ============================================================
+function initStep5() {
+  confVal = 0.764;
+  document.getElementById('conf-slider').value = '0.764';
+  document.getElementById('conf-val').textContent = '0.764';
+  document.getElementById('full-formula').classList.remove('show');
+  updateCE(confVal);
+  drawCECanvas(confVal);
+}
+
+function updateCE(p) {
+  const logits = [2.5, 1.0, -0.5];
+  const probs = softmax(logits, 1.0);
+  // use slider value as P(cat), scale others proportionally
+  const pCat = p;
+  const remaining = 1 - pCat;
+  const pDog = remaining * (probs[1] / (probs[1] + probs[2]));
+  const pFrog = remaining - pDog;
+  const loss = -Math.log(pCat);
+
+  document.getElementById('ce-p0').textContent = pCat.toFixed(3);
+  document.getElementById('ce-p1').textContent = pDog.toFixed(3);
+  document.getElementById('ce-p2').textContent = pFrog.toFixed(3);
+  document.getElementById('ce-conf-disp').textContent = pCat.toFixed(3);
+  document.getElementById('ce-loss-val').textContent = loss.toFixed(3);
+
+  const bigEl = document.getElementById('ce-loss-big');
+  bigEl.textContent = loss.toFixed(3);
+  if (loss < 0.5) bigEl.style.color = '#48c78e';
+  else if (loss < 1.5) bigEl.style.color = '#f6d860';
+  else bigEl.style.color = '#ff6464';
+}
+
+function drawCECanvas(currentP) {
+  const el = document.getElementById('ce-canvas');
+  if (!el) return;
+  const rect = el.parentElement.getBoundingClientRect();
+  const W = Math.max(rect.width - 40, 200);
+  const H = 190;
+  const dpr = window.devicePixelRatio || 1;
+  el.width = W * dpr;
+  el.height = H * dpr;
+  el.style.width = W + 'px';
+  el.style.height = H + 'px';
+  const ctx = el.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 50, r: 20, t: 20, b: 36 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+  const maxY = 5;
+
+  // grid lines
+  ctx.strokeStyle = '#2a3050';
+  ctx.lineWidth = 1;
+  [0,1,2,3,4,5].forEach(y => {
+    const sy = pad.t + ph * (1 - y / maxY);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, sy);
+    ctx.lineTo(pad.l + pw, sy);
+    ctx.stroke();
+    ctx.fillStyle = '#607090';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(y, pad.l - 4, sy + 3);
+  });
+
+  // axes
+  ctx.strokeStyle = '#405070';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + ph);
+  ctx.lineTo(pad.l + pw, pad.t + ph);
+  ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = '#607090';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('p (预测置信度)', pad.l + pw / 2, H - 4);
+  ctx.save();
+  ctx.translate(13, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('-log(p)', 0, 0);
+  ctx.restore();
+
+  // x ticks
+  [0.2, 0.4, 0.6, 0.8, 1.0].forEach(x => {
+    const sx = pad.l + x * pw;
+    ctx.fillStyle = '#607090';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(x.toFixed(1), sx, pad.t + ph + 14);
+  });
+
+  // -log(x) curve
+  ctx.beginPath();
+  ctx.strokeStyle = '#667eea';
+  ctx.lineWidth = 2.5;
+  let first = true;
+  for (let xi = 2; xi <= pw; xi++) {
+    const x = (xi / pw);
+    const y = -Math.log(x);
+    if (y > maxY) continue;
+    const sx = pad.l + xi;
+    const sy = pad.t + ph * (1 - y / maxY);
+    if (first) { ctx.moveTo(sx, sy); first = false; }
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+
+  // current point
+  const cp = Math.max(0.01, Math.min(0.99, currentP));
+  const cy = -Math.log(cp);
+  if (cy <= maxY) {
+    const sx = pad.l + cp * pw;
+    const sy = pad.t + ph * (1 - cy / maxY);
+    // glow
+    ctx.beginPath();
+    ctx.arc(sx, sy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,100,100,0.2)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+    if (cy < 0.5) ctx.fillStyle = '#48c78e';
+    else if (cy < 1.5) ctx.fillStyle = '#f6d860';
+    else ctx.fillStyle = '#ff6464';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // value label
+    ctx.fillStyle = '#e0e8ff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`loss=${cy.toFixed(3)}`, sx + 10, sy - 6);
+  }
+}
+
+function onConfChange() {
+  confVal = parseFloat(document.getElementById('conf-slider').value);
+  document.getElementById('conf-val').textContent = confVal.toFixed(3);
+  updateCE(confVal);
+  drawCECanvas(confVal);
+}
+
+function toggleFullFormula() {
+  const el = document.getElementById('full-formula');
+  el.classList.toggle('show');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  initStep(0);
+});
+
+window.addEventListener('resize', () => {
+  if (currentStep === 0) drawNet(netAnimProgress);
+  if (currentStep === 3) drawCompareCanvas();
+  if (currentStep === 5) drawCECanvas(confVal);
+});
+</script>
+</body>
+</html>
