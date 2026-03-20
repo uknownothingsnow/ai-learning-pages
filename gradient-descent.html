@@ -1554,5 +1554,37 @@ window.addEventListener('load', ()=>{
 });
 
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="nn-basics.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：神经网络基础
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    2 / 10 — 梯度下降
+  </span>
+  <a href="backprop.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：反向传播 →
+  </a>
+</div>
 </body>
 </html>

@@ -1445,12 +1445,21 @@ const infoCards = [
             <li>每个核检测不同的特征（横边/竖边/斜边…）</li>
             <li>核的权重通过<strong>反向传播</strong>自动学习</li>
         </ul>
+        <p style="font-size:0.85em;color:#555;margin-top:10px;line-height:1.7;">
+🔬 <strong>真实网络学到的核长什么样？</strong><br>
+训练后，第一层的卷积核通常是各种方向的边缘检测器（斜线、横线、竖线）；
+更深的层会学到更复杂的图案（眼睛形状、纹理等）。
+这些都是网络<em>自动</em>学到的，无需人工设计。
+</p>
     </div>
     <div class="card">
         <h3>📐 输出尺寸公式</h3>
         <div class="formula">输出 = (N - F + 1) × (N - F + 1)<br><br>N=6, F=3 → 输出 4×4</div>
         <p style="margin-top:8px;font-size:0.85em;">加 Padding 可保持输出尺寸不缩小。</p>
-    </div>`,
+    </div>
+    <p style="font-size:0.82em;color:#888;margin-top:8px;border-top:1px solid #eee;padding-top:8px;">
+🌈 <strong>彩色图像怎么处理？</strong> 真实 RGB 图像有 3 个通道（红/绿/蓝），每个通道各有一组卷积核，最终将三个通道的结果合并。本教程用灰度图演示，原理完全相同。
+</p>`,
 
     // Step 2
     `<div class="card">
@@ -1467,6 +1476,13 @@ const infoCards = [
         <h3>🌈 特征图含义</h3>
         <p><span style="color:#16a34a">绿色</span>=正激活（特征存在），<span style="color:#e74c3c">红色</span>=负激活，<span style="color:#888">灰色</span>=无激活</p>
         <p style="margin-top:8px;">边缘检测核在<strong>亮暗边界</strong>处会产生大的正激活值。</p>
+        <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.85em;line-height:1.7;">
+  <strong>❓ 为什么 6×6 输入变成了 4×4 特征图？</strong><br>
+  • <strong>Stride（步长）= 1</strong>：每次移动 1 格<br>
+  • <strong>No Padding（无填充）</strong>：不在边缘补零<br>
+  • 计算公式：输出大小 = (输入 − 核大小) / 步长 + 1 = (6−3)/1+1 = <strong>4</strong><br>
+  <span style="color:#888;font-size:0.9em;">真实模型中常用 padding=1 来保持尺寸不变。</span>
+</div>
     </div>`,
 
     // Step 3
@@ -1502,7 +1518,13 @@ const infoCards = [
     </div>`,
 
     // Step 5
-    `<div class="card">
+    `<p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:0.9em;line-height:1.7;">
+💡 <strong>卷积层 vs 全连接层：</strong><br>
+&nbsp;&nbsp;• <strong>卷积层</strong>：负责"看"——提取边缘、形状、纹理等局部特征 👁️<br>
+&nbsp;&nbsp;• <strong>全连接层</strong>：负责"判断"——综合所有特征，得出"这是猫"的结论 🧠<br>
+就像先用眼睛扫描细节，再用大脑综合判断。
+</p>
+<div class="card">
         <h3>🎯 全连接层</h3>
         <p>将所有特征图<strong>展平（Flatten）</strong>成一维向量，送入传统全连接网络。</p>
         <ul style="margin-top:8px;padding-left:16px;line-height:2;">
@@ -1560,5 +1582,37 @@ function goStep(n) {
 // ==================== INIT ====================
 goStep(0);
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="softmax-tutorial.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：SoftMax与交叉熵
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    6 / 10 — CNN
+  </span>
+  <a href="tensor-pytorch.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：张量与PyTorch →
+  </a>
+</div>
 </body>
 </html>

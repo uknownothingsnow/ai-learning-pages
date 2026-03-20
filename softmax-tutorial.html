@@ -175,6 +175,9 @@
         <h3>🤔 什么是 Logit？</h3>
         <p>神经网络最后一层（全连接层）的原始输出数值，称为 <strong style="color:#f6d860">logit</strong>。</p>
         <p style="margin-top:8px">这些数值可以是任意实数，范围 (−∞, +∞)，没有归一化约束。</p>
+        <p style="font-size:0.85em;color:#666;margin-top:6px;">
+💬 <em>小知识：</em>"logit" 来自逻辑回归（logistic regression），可以暂时把它理解为<strong>"原始分数"</strong>——还没有变成概率，可以是任意正负数。
+</p>
       </div>
       <div class="card">
         <h3>❓ 为什么不能直接分类？</h3>
@@ -422,6 +425,14 @@
 <div class="step-panel" id="step-4">
   <div class="step-title">Step 4：SoftMax 的导数 — 雅可比矩阵</div>
   <div class="main-area">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+  <span style="background:#ffedd5;color:#9a3412;padding:4px 12px;border-radius:20px;font-size:0.8em;font-weight:700;">
+    ⚡ 进阶内容 · 可选学习
+  </span>
+  <span style="font-size:0.85em;color:#666;">
+    初学者可以先跳到 Step 5，之后实际做项目遇到反向传播问题再回来看这部分。
+  </span>
+</div>
     <div class="viz-panel">
       <div style="font-size:.83rem;color:#a0a8c0;margin-bottom:6px">P = [<span style="color:#f6d860">0.764</span>, <span style="color:#b080ff">0.175</span>, <span style="color:#ff80b0">0.061</span>]&nbsp; — 点击格子查看公式推导</div>
       <div class="jac-header">
@@ -531,6 +542,13 @@
           &nbsp;&nbsp;= <span class="hl">-log(0.764) ≈ 0.269</span>
         </div>
       </div>
+      <p style="background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.85em;line-height:1.7;">
+🤔 <strong>为什么要取 log？</strong><br>
+取 log 是为了<strong>重罚低置信度的错误预测</strong>：<br>
+• 置信度从 90% → 50%：损失增加约 0.6<br>
+• 置信度从 50% → 10%：损失增加约 1.6（惩罚更重）<br>
+这让模型更努力提升那些"完全答错"的预测，而不只是微调已经对的。
+</p>
     </div>
     <div class="info-panel">
       <div class="card">
@@ -1376,5 +1394,37 @@ window.addEventListener('resize', () => {
   if (currentStep === 5) drawCECanvas(confVal);
 });
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="nn-architecture.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：神经网络架构
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    5 / 10 — SoftMax与交叉熵
+  </span>
+  <a href="cnn-tutorial.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：CNN →
+  </a>
+</div>
 </body>
 </html>

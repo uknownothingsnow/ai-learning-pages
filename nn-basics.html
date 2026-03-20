@@ -603,6 +603,9 @@ function initStep0(viz, info) {
     <div style="font-size:1.2rem;font-weight:800;color:#1e293b;margin-bottom:4px">
       🤔 为什么线性模型不够？
     </div>
+    <p style="background:#e8f4fd;border-left:4px solid #667eea;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:10px;font-size:0.88em;line-height:1.6;">
+📖 <strong>感知机</strong>是最早期的神经网络，本质上就是<strong>一条直线</strong>（或一个平面），把数据分成两类。它能做的事情很有限——遇到"螺旋形"这类复杂分布就束手无策。
+</p>
     <div class="card">
       <h3>感知机的局限</h3>
       <p>感知机（Perceptron）只能学习<strong>线性决策边界</strong>——一条直线（2D）或超平面（高维）。</p>
@@ -614,7 +617,7 @@ function initStep0(viz, info) {
       <ul>
         <li>多层结构 → 学习<strong>弯曲决策边界</strong></li>
         <li>非线性激活函数 → 表达复杂函数关系</li>
-        <li>通用近似定理：足够宽的网络可以拟合任意连续函数</li>
+        <li>就像乐高积木：只要砖块够多、层数够深，神经网络理论上可以<strong>学会任何复杂模式</strong>——这是它强大能力的数学保证。</li>
       </ul>
     </div>
     <div class="formula">
@@ -1600,6 +1603,12 @@ function initStep4(viz, info) {
 
   // Info
   info.innerHTML = `
+    <p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:14px;font-size:0.9em;line-height:1.7;">
+💡 <strong>为什么需要链式法则？</strong><br>
+训练神经网络时，我们需要知道"调整最深层的权重，对最终输出有多大影响"。<br>
+但权重埋在很多层里，中间隔了很多函数……<br>
+链式法则就是答案：<strong>导数可以像接力棒一样，一层一层传递下去。</strong>
+</p>
     <div style="font-size:1.2rem;font-weight:800;color:#1e293b">⛓️ 链式法则</div>
     <div class="formula">
       <span class="cm">// 复合函数</span><br>
@@ -1875,5 +1884,37 @@ buildNav();
 updateProgress();
 renderStep(0);
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="index.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 返回目录
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    1 / 10 — 神经网络基础
+  </span>
+  <a href="gradient-descent.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：梯度下降 →
+  </a>
+</div>
 </body>
 </html>

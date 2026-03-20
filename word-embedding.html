@@ -291,6 +291,10 @@ table.mat tr.hl-row td{box-shadow:inset 0 0 0 2px #667eea}
         <li>任意两词余弦相似度为 0，无语义信息</li>
         <li>存储和计算代价高昂</li>
       </ul>
+      <p style="font-size:0.85em;color:#666;margin-top:6px;line-height:1.6;">
+📊 <strong>实际规模有多大？</strong>中文常用词约 5 万个，英语词表约 3~5 万个。<br>
+这意味着每个词的 One-hot 向量就有 <strong>5 万维</strong>，其中只有 1 个是 1，其余全是 0——<strong>极度浪费空间，而且完全没有语义信息</strong>。
+</p>
     </div>
     <div class="card">
       <h3>✨ 嵌入的优势</h3>
@@ -449,6 +453,9 @@ table.mat tr.hl-row td{box-shadow:inset 0 0 0 2px #667eea}
   </div>
   <div class="info-panel">
     <div class="panel-title">预训练嵌入与迁移学习</div>
+    <p style="font-size:0.88em;color:#555;margin-bottom:8px;line-height:1.6;">
+🔄 <strong>刚才学了怎么从头训练词嵌入</strong>，但实际中我们通常直接用别人在大规模语料上训练好的嵌入向量，就像"站在巨人的肩膀上"：
+</p>
     <div class="card">
       <h3>📚 GloVe（Global Vectors）</h3>
       <ul>
@@ -523,6 +530,13 @@ table.mat tr.hl-row td{box-shadow:inset 0 0 0 2px #667eea}
         <li>长句（20词）→ 信息丢失严重 ❌</li>
         <li>句子越长，BLEU 分数下降越明显</li>
       </ul>
+      <div style="background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:12px 16px;margin-top:10px;font-size:0.85em;line-height:1.8;">
+<strong style="color:#f6d860;">具体例子：</strong><br>
+翻译 "猫喜欢吃鱼，因为<span style="color:#f6d860;">它</span>很新鲜"<br>
+→ 到 "它" 这个词时，模型需要记住的是 "<span style="color:#2ecc71;">鱼</span>" 而不是 "<span style="color:#e74c3c;">猫</span>"<br>
+→ 但句子越长，Context Vector 越"拥挤"，早期的信息越容易被新信息<strong style="color:#e74c3c;">覆盖</strong><br>
+→ 这就是为什么长句翻译质量差——Attention 机制正是为了解决这个问题 💡
+</div>
     </div>
     <div class="card">
       <h3>💡 解决方案：Attention</h3>
@@ -1462,5 +1476,37 @@ window.addEventListener('resize',()=>{
   if(currentStep===2) s2Init();
 });
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="rnn-lstm.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：RNN与LSTM
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    9 / 10 — 词嵌入与Seq2Seq
+  </span>
+  <a href="transformer.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：Transformer →
+  </a>
+</div>
 </body>
 </html>

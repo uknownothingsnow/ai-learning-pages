@@ -660,6 +660,9 @@ x = torch.randn(8, 3, 64, 64) # [8,3,64,64]
       </div>
       <div class="step-indicator" id="op-step-label">点击「下一步」逐格演示运算过程</div>
     </div>
+    <p style="background:#f3e8ff;border-left:4px solid #7e22ce;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:0.85em;">
+📌 <strong>进阶：广播机制</strong>（Broadcasting）——暂时看不懂没关系，遇到维度报错时再回来查。
+</p>
     <div class="broadcast-area" style="margin-top:10px">
       <div class="broadcast-label">📡 广播机制（Broadcasting）演示：[3,1] + [1,3] → [3,3]</div>
       <div class="broadcast-row" id="broadcast-row"></div>
@@ -803,6 +806,9 @@ print(x.grad)    # dz/dx = 6x = 12
 with torch.no_grad():
     pred = model(x)
       </div>
+      <p style="font-size:0.85em;color:#666;margin-top:6px;line-height:1.6;">
+💡 输入数据 <code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;">x</code> 通常<strong>不需要梯度</strong>——我们不会去"优化输入数据本身"，只优化模型的权重 W 和偏置 b。所以数据的 <code>requires_grad</code> 默认是 False。
+</p>
     </div>
     <div class="info-card">
       <h3>📊 链式法则</h3>
@@ -856,6 +862,12 @@ optimizer.zero_grad()  # ← 必须！
 loss.backward()
 optimizer.step()
       </div>
+      <p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-top:8px;font-size:0.88em;line-height:1.7;">
+⚠️ <strong>为什么每次必须调用 <code style="background:#1a1a2e;color:#f6d860;padding:1px 5px;border-radius:3px;">zero_grad()</code>？</strong><br>
+PyTorch 默认会<strong>累加</strong>梯度——就像黑板上的字越写越多，不擦就会乱。<br>
+如果忘了 <code>zero_grad()</code>，本次的梯度会叠加到上次的梯度上，导致参数更新错误。<br>
+这是 PyTorch 初学者最常犯的 Bug ❗
+</p>
     </div>
     <div class="info-card">
       <h3>🐛 常见训练 Bug</h3>
@@ -1943,5 +1955,37 @@ window.addEventListener('resize', () => {
   }
 });
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="cnn-tutorial.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：CNN
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    7 / 10 — 张量与PyTorch
+  </span>
+  <a href="rnn-lstm.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：RNN与LSTM →
+  </a>
+</div>
 </body>
 </html>

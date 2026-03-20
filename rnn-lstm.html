@@ -620,6 +620,14 @@
         </ul>
       </div>
       <div class="info-card">
+        <p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:0.9em;line-height:1.7;">
+💡 <strong>理解 LSTM 的故事线：</strong><br>
+把 LSTM 想象成一个在读长篇小说时记笔记的人：<br>
+&nbsp;&nbsp;1. <strong style="color:#e74c3c;">遗忘门</strong>："上一段的细节不重要了，擦掉" 🗑️<br>
+&nbsp;&nbsp;2. <strong style="color:#2ecc71;">输入门</strong>："这段出现了新的关键人物，记下来" 📝<br>
+&nbsp;&nbsp;3. <strong style="color:#3498db;">输出门</strong>："现在要回答问题了，从笔记里找相关内容" 🔍<br>
+点击左侧图中的每个门，查看详细公式。
+</p>
         <h3>🚪 三个门的核心公式</h3>
         <div class="formula-box" style="text-align:left;font-size:0.82rem">
           <span style="color:#ff6b6b">f</span> = σ(Wf·[h,x]+bf)  <span style="color:#888">← 遗忘门</span><br>
@@ -630,6 +638,9 @@
           <span style="color:#aaa">hₜ = </span><span style="color:#74c0fc">o</span><span style="color:#aaa">⊙tanh(Cₜ)</span>
         </div>
         <p style="font-size:0.82rem;color:#8899bb;">σ = sigmoid函数，输出0~1（门控信号）；⊙ = 逐元素相乘</p>
+        <p style="font-size:0.82em;color:#888;margin-top:6px;">
+📌 符号说明：<code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;">[h, x]</code> 表示将两个向量<strong>首尾相接拼在一起</strong>，变成一个更长的向量（不是相乘）。
+</p>
       </div>
       <div class="info-card" id="gateDetailCard">
         <h3>📌 直觉理解</h3>
@@ -745,6 +756,9 @@
         </ul>
       </div>
       <div class="info-card">
+        <p style="background:#e8f4fd;border-left:4px solid #667eea;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:10px;font-size:0.85em;">
+📖 <strong>GRU（门控循环单元）</strong>是 LSTM 的简化版：把遗忘门和输入门合并成一个"更新门"，参数更少、训练更快，效果与 LSTM 相当。本教程不深入讲，了解即可。
+</p>
         <h3>🔑 GRU 的简化</h3>
         <p>GRU（Gated Recurrent Unit，2014）将 LSTM 的遗忘门和输入门合并为<span class="hl">更新门</span>，额外增加<span class="hl-green">重置门</span>：</p>
         <div class="formula-box" style="font-size:0.8rem;text-align:left">
@@ -1652,5 +1666,37 @@ window.addEventListener('resize', () => {
   initStep(currentStep);
 });
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="tensor-pytorch.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：张量与PyTorch
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    8 / 10 — RNN与LSTM
+  </span>
+  <a href="word-embedding.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：词嵌入与Seq2Seq →
+  </a>
+</div>
 </body>
 </html>

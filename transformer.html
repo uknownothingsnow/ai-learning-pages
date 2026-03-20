@@ -294,6 +294,14 @@
   <div class="info-panel">
     <div class="info-card">
       <h3>📐 Attention 核心公式</h3>
+      <p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:0.9em;line-height:1.7;">
+💡 <strong>为什么需要三个矩阵？</strong><br>
+每个词要同时扮演三种角色：<br>
+&nbsp;&nbsp;• <strong style="color:#e74c3c;">Q（查询者）</strong>：我想找什么信息？<br>
+&nbsp;&nbsp;• <strong style="color:#2ecc71;">K（被查询者）</strong>：我能提供什么索引？<br>
+&nbsp;&nbsp;• <strong style="color:#3498db;">V（信息提供者）</strong>：我实际携带什么内容？<br>
+W^Q、W^K、W^V 三个矩阵，就是把同一个词"投影"成这三种不同角色的变换器。
+</p>
       <div class="formula-box">
         <span class="hl">Attention</span>(Q,K,V) =<br>
         &nbsp;&nbsp;<span class="hl2">Softmax</span>(<span class="hl">Q</span><span class="hl3">Kᵀ</span> / <span class="hl2">√d_k</span>) · <span class="hl3">V</span>
@@ -419,6 +427,9 @@
       <div class="canvas-wrap" style="margin-top:6px">
         <canvas id="pe-canvas" style="max-width:100%"></canvas>
       </div>
+      <p style="font-size:0.85em;color:#666;margin-top:8px;line-height:1.7;">
+🕐 <strong>为什么用正弦函数？</strong>正弦值永远在 -1~1 之间，而且不同频率的组合能<strong>唯一表示每个位置</strong>——有点像时钟的时针和分针，两者组合就能精确表示一天中的任意时刻。
+</p>
     </div>
   </div>
 
@@ -554,6 +565,12 @@
 
   <div class="info-panel">
     <div class="info-card">
+      <div style="display:inline-block;background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:10px;font-size:0.78em;font-weight:600;margin-bottom:10px;">
+⚡ 进阶内容 · 可选学习
+</div>
+<p style="font-size:0.85em;color:#666;margin-bottom:12px;">
+理解 Transformer 的计算复杂度，对了解 GPT 处理长文本时变慢的原因很有帮助。初学者可以先跳过，之后再来看。
+</p>
       <h3>🌍 Transformer 家族</h3>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
         <span class="tag tag-blue">BERT</span>
@@ -589,6 +606,13 @@
       <div class="info-block">
         💡 Flash Attention / Sparse Attention / Mamba 等改进正在解决 O(n²) 瓶颈
       </div>
+      <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);color:white;border-radius:12px;padding:16px 20px;margin-bottom:16px;text-align:center;">
+  <p style="font-size:1em;font-weight:600;margin-bottom:8px;">🎉 恭喜完成 Transformer 学习！</p>
+  <p style="font-size:0.85em;opacity:0.85;line-height:1.7;">
+    学完这节，你已经理解了 <strong style="color:#f6d860;">GPT、BERT、T5、ViT</strong> 等当今最强大模型的核心原理。<br>
+    Transformer 架构自 2017 年提出，已成为几乎所有现代 AI 的基础。
+  </p>
+</div>
     </div>
   </div>
 </div>
@@ -1358,5 +1382,37 @@ function toggleEq(i,header){
 // ═══════════════════════ INIT ═══════════════════════
 initStep(0);
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="word-embedding.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：词嵌入与Seq2Seq
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    10 / 10 — Transformer
+  </span>
+  <a href="index.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    返回目录 →
+  </a>
+</div>
 </body>
 </html>

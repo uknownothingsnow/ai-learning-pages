@@ -349,6 +349,9 @@
           <span class="hi">L(w) = (w−1)² + 0.5</span><br>
           <span class="gr">// 最小值在 w=1，Loss=0.5</span>
         </div>
+        <p style="font-size:0.82em;color:#888;margin-top:6px;">
+（例：L(w=1) = (1−1)² + 0.3 = 0 + 0.3 = 0.3，代入公式可验证）
+</p>
       </div>
       <div class="card">
         <h3>💡 直觉</h3>
@@ -463,6 +466,9 @@
         <label>target =</label>
         <input type="number" id="s3_t"  value="1"   step="0.1" oninput="s3_userInput()">
       </div>
+      <p style="text-align:center;color:#667eea;font-size:0.85em;margin-top:10px;font-weight:600;">
+修改数值后，点击下方「计算前向」按钮查看梯度如何变化 👇
+</p>
       <div class="controls">
         <button class="btn" onclick="s3_forward()">计算前向 →</button>
         <button class="btn danger" onclick="s3_backward()">计算梯度 ←</button>
@@ -483,6 +489,14 @@
       <div class="card">
         <span class="badge">链式法则</span>
         <h3>∂L/∂w₂ 的展开</h3>
+        <p style="background:#fff3cd;border-left:4px solid #f6d860;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:0.9em;line-height:1.7;">
+💡 <strong>直觉：</strong>导数可以像接力棒一样传递。<br>
+就像"速度×时间=距离"可以拆开算，复杂函数的导数也能<strong>拆开来逐级相乘</strong>：<br>
+<code style="background:#1a1a2e;color:#f6d860;padding:2px 6px;border-radius:4px;">
+∂L/∂w = (∂L/∂output) × (∂output/∂hidden) × (∂hidden/∂w)
+</code><br>
+每一项都是"相邻两层之间"的局部导数，最终连乘起来就是梯度。
+</p>
         <div class="formula">
           <span class="hi">∂L/∂w₂</span> =<br>
           &nbsp;&nbsp;<span class="rd">∂L/∂out</span> ·<br>
@@ -538,6 +552,10 @@
       </div>
     </div>
     <div class="info-panel">
+      <p style="background:#e8f4fd;border-left:4px solid #667eea;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:14px;font-size:0.88em;line-height:1.6;">
+📌 <strong>注：</strong>这部分讲的是"每次用多少数据计算梯度"，是梯度下降的延伸话题。
+如果你还没看过<a href="gradient-descent.html" style="color:#667eea;">梯度下降章节</a>，建议先去那里打好基础。
+</p>
       <div class="card">
         <span class="badge">三种梯度下降</span>
         <h3>Batch GD（全批量）</h3>
@@ -1466,5 +1484,37 @@ window.addEventListener('resize', () => {
   initStep(currentStep);
 });
 </script>
+<!-- 章节导航 -->
+<div style="
+  max-width:1300px;margin:20px auto;padding:0 20px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:12px;
+">
+  <a href="gradient-descent.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:white;color:#667eea;
+    border:2px solid #667eea;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.background='#667eea';this.style.color='white'"
+     onmouseout="this.style.background='white';this.style.color='#667eea'">
+    ← 上一章：梯度下降
+  </a>
+  <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">
+    3 / 10 — 反向传播
+  </span>
+  <a href="nn-architecture.html" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 24px;border-radius:30px;
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    border:2px solid transparent;text-decoration:none;
+    font-weight:600;font-size:0.9em;
+    transition:all 0.2s;
+  " onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+    下一章：神经网络架构 →
+  </a>
+</div>
 </body>
 </html>
